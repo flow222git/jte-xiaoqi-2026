@@ -1,0 +1,3708 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<meta name="theme-color" content="#e8eef0">
+<title>小憩。練息 v4 prototype</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Serif+TC:wght@300;400;500;600&family=Cormorant+Garamond:wght@300;400&display=swap" rel="stylesheet">
+<style>
+  :root {
+    /* 淺色透明感色票 */
+    --bg-base: #eef3f4;        /* 主背景 */
+    --bg-warm: #f5ecd9;        /* 暖底色(吐氣) */
+    --bg-cool: #d8e4e8;        /* 冷底色(吸氣) */
+    --ink: #3a4a4d;            /* 主文字 */
+    --ink-soft: #6b7e80;       /* 次文字 */
+    --ink-light: #9aaaad;      /* 三級文字 */
+    --accent: #6a8a8a;         /* 主色調 */
+    --accent-warm: #c89878;    /* 暖點綴 */
+    --paper: #ffffff;
+    --glass: rgba(255, 255, 255, 0.5);
+    --glass-border: rgba(255, 255, 255, 0.7);
+    --shadow: 0 4px 30px rgba(58, 74, 77, 0.06);
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  html, body {
+    height: 100%;
+    overflow: hidden;
+    font-family: 'Noto Serif TC', 'Songti TC', serif;
+    -webkit-font-smoothing: antialiased;
+    color: var(--ink);
+    user-select: none;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  body {
+    background: var(--bg-base);
+    position: relative;
+  }
+
+  /* === 全屏色塊呼吸層 === */
+  .breath-bg {
+    position: fixed;
+    inset: 0;
+    z-index: 0;
+    background: var(--bg-base);
+    transition: background 1.2s ease;
+    pointer-events: none;
+  }
+  .breath-bg.inhale {
+    background: linear-gradient(135deg, var(--bg-cool) 0%, #c8dadf 60%, #b5cdd5 100%);
+  }
+  .breath-bg.exhale {
+    background: linear-gradient(135deg, var(--bg-warm) 0%, #ecdfc4 60%, #ddc9a3 100%);
+  }
+
+  /* 呼吸感渲染光暈(隨呼吸縮放) */
+  .breath-glow {
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    width: 80vw;
+    height: 80vw;
+    max-width: 700px;
+    max-height: 700px;
+    transform: translate(-50%, -50%) scale(0.8);
+    border-radius: 50%;
+    background: radial-gradient(circle,
+      rgba(255,255,255,0.6) 0%,
+      rgba(255,255,255,0.2) 40%,
+      transparent 70%);
+    z-index: 1;
+    transition: transform 0.1s linear, opacity 1s ease;
+    pointer-events: none;
+    opacity: 0;
+  }
+  .breath-glow.active { opacity: 1; }
+
+  /* === Logo 浮水印 === */
+  .logo-corner {
+    position: fixed;
+    top: 18px;
+    left: 18px;
+    z-index: 50;
+    opacity: 0.6;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .logo-box {
+    width: 26px;
+    height: 26px;
+    border-radius: 7px;
+    background: var(--ink);
+    color: var(--paper);
+    font-size: 13px;
+    font-weight: 500;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-family: 'Noto Serif TC', serif;
+  }
+  .logo-text-mini {
+    font-size: 12px;
+    color: var(--ink);
+    letter-spacing: 1.5px;
+  }
+
+  /* === 右上個人入口 === */
+  .profile-corner {
+    position: fixed;
+    top: 16px;
+    right: 16px;
+    z-index: 50;
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    background: rgba(255, 255, 255, 0.5);
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+    border: 1px solid rgba(255, 255, 255, 0.7);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: all 0.3s;
+    opacity: 0.7;
+  }
+  .profile-corner:hover { opacity: 1; background: rgba(255, 255, 255, 0.8); }
+  .profile-corner svg {
+    width: 18px;
+    height: 18px;
+    stroke: var(--ink);
+    fill: none;
+    stroke-width: 1.5;
+  }
+
+  /* === 個人檔案頁 === */
+  #screen-profile {
+    justify-content: flex-start;
+    padding-top: 70px;
+    overflow-y: auto;
+  }
+  .profile-header {
+    text-align: center;
+    margin-bottom: 28px;
+  }
+  .profile-title {
+    font-family: 'Noto Serif TC', serif;
+    font-size: 26px;
+    font-weight: 500;
+    color: var(--ink);
+    letter-spacing: 6px;
+  }
+  .profile-sub {
+    font-family: 'Cormorant Garamond', serif;
+    font-size: 12px;
+    color: var(--ink-soft);
+    letter-spacing: 4px;
+    margin-top: 6px;
+  }
+
+  .profile-card {
+    width: 100%;
+    max-width: 380px;
+    background: var(--glass);
+    backdrop-filter: blur(14px);
+    -webkit-backdrop-filter: blur(14px);
+    border: 1px solid var(--glass-border);
+    border-radius: 18px;
+    padding: 22px 20px;
+    margin-bottom: 14px;
+    box-shadow: var(--shadow);
+  }
+  .profile-card-title {
+    font-size: 12px;
+    color: var(--ink-soft);
+    letter-spacing: 4px;
+    margin-bottom: 14px;
+    text-align: center;
+  }
+
+  /* 主要數據區(累計次數、總分鐘) */
+  .profile-stats {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+  }
+  .stat-block {
+    text-align: center;
+    padding: 8px 4px;
+  }
+  .stat-num {
+    font-family: 'Cormorant Garamond', serif;
+    font-size: 42px;
+    font-weight: 300;
+    color: var(--ink);
+    line-height: 1;
+  }
+  .stat-unit {
+    font-size: 12px;
+    color: var(--ink-soft);
+    letter-spacing: 2px;
+    margin-top: 8px;
+  }
+
+  /* 模式 ranking */
+  .mode-rank-list {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+  .mode-rank-item {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 8px 0;
+  }
+  .mode-rank-num {
+    font-family: 'Cormorant Garamond', serif;
+    font-size: 18px;
+    font-weight: 400;
+    color: var(--accent);
+    width: 22px;
+  }
+  .mode-rank-name {
+    flex: 1;
+    font-size: 14px;
+    color: var(--ink);
+    letter-spacing: 1px;
+  }
+  .mode-rank-count {
+    font-size: 12px;
+    color: var(--ink-light);
+    font-family: 'Cormorant Garamond', serif;
+  }
+  .mode-rank-bar-wrap {
+    flex: 1;
+    height: 3px;
+    background: rgba(106, 138, 138, 0.15);
+    border-radius: 2px;
+    overflow: hidden;
+    margin: 0 8px;
+  }
+  .mode-rank-bar {
+    height: 100%;
+    background: var(--accent);
+    border-radius: 2px;
+  }
+
+  /* 月曆 */
+  .calendar-month {
+    text-align: center;
+    font-size: 13px;
+    color: var(--ink-soft);
+    letter-spacing: 3px;
+    margin-bottom: 14px;
+  }
+  .calendar-grid {
+    display: grid;
+    grid-template-columns: repeat(7, 1fr);
+    gap: 6px;
+  }
+  .cal-weekday {
+    font-size: 10px;
+    color: var(--ink-light);
+    text-align: center;
+    padding: 4px 0;
+    letter-spacing: 1px;
+  }
+  .cal-day {
+    aspect-ratio: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 11px;
+    color: var(--ink-light);
+    font-family: 'Cormorant Garamond', serif;
+    border-radius: 50%;
+    transition: all 0.2s;
+  }
+  .cal-day.empty {
+    visibility: hidden;
+  }
+  .cal-day.today {
+    border: 1px solid var(--accent);
+    color: var(--accent);
+  }
+  .cal-day.practiced {
+    background: var(--accent);
+    color: white;
+    font-weight: 500;
+  }
+  .cal-day.practiced.today {
+    box-shadow: 0 0 0 2px rgba(106, 138, 138, 0.3);
+  }
+
+  /* 感受標籤雲 */
+  .feeling-cloud {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    justify-content: center;
+  }
+  .feeling-tag {
+    padding: 6px 12px;
+    background: rgba(106, 138, 138, 0.12);
+    border-radius: 14px;
+    font-size: 12px;
+    color: var(--ink);
+    letter-spacing: 0.5px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .feeling-tag-count {
+    font-family: 'Cormorant Garamond', serif;
+    font-size: 11px;
+    color: var(--ink-soft);
+  }
+
+  /* 空狀態 */
+  .profile-empty {
+    text-align: center;
+    color: var(--ink-light);
+    font-size: 13px;
+    padding: 20px 10px;
+    letter-spacing: 1px;
+    line-height: 1.8;
+  }
+
+  /* 清除按鈕 */
+  .danger-btn {
+    background: transparent;
+    color: var(--ink-light);
+    border: none;
+    font-size: 12px;
+    padding: 14px 20px;
+    margin-top: 24px;
+    cursor: pointer;
+    letter-spacing: 3px;
+    font-family: 'Noto Serif TC', serif;
+    transition: color 0.2s;
+  }
+  .danger-btn:hover { color: #c97a4a; }
+
+  /* === 螢幕系統 === */
+  .screen {
+    position: fixed;
+    inset: 0;
+    z-index: 10;
+    display: none;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 60px 24px;
+    animation: fadeIn 0.8s ease;
+  }
+  .screen.active { display: flex; }
+
+  @keyframes fadeIn {
+    from { opacity: 0; transform: translateY(8px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  /* === iOS 加入主畫面提示 === */
+  .ios-hint {
+    position: fixed;
+    bottom: 30px;
+    left: 50%;
+    transform: translateX(-50%) translateY(150%);
+    width: calc(100% - 40px);
+    max-width: 340px;
+    z-index: 100;
+    background: rgba(255, 255, 255, 0.92);
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+    border: 1px solid rgba(255, 255, 255, 0.8);
+    border-radius: 16px;
+    padding: 16px 18px;
+    box-shadow: 0 8px 30px rgba(58, 74, 77, 0.15);
+    transition: transform 0.5s ease;
+  }
+  .ios-hint.show {
+    transform: translateX(-50%) translateY(0);
+  }
+  .ios-hint-title {
+    font-size: 14px;
+    font-weight: 500;
+    color: var(--ink);
+    margin-bottom: 6px;
+    letter-spacing: 1px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .ios-hint-text {
+    font-size: 12px;
+    color: var(--ink-soft);
+    line-height: 1.7;
+    letter-spacing: 0.3px;
+  }
+  .ios-hint-text strong {
+    color: var(--accent);
+    font-weight: 500;
+  }
+  .ios-hint-actions {
+    display: flex;
+    justify-content: space-between;
+    margin-top: 12px;
+    align-items: center;
+  }
+  .ios-hint-close {
+    font-size: 12px;
+    color: var(--ink-light);
+    cursor: pointer;
+    padding: 4px 8px;
+    letter-spacing: 1px;
+  }
+  .ios-hint-howto {
+    font-size: 12px;
+    color: var(--accent);
+    cursor: pointer;
+    padding: 4px 8px;
+    letter-spacing: 1px;
+    font-weight: 500;
+  }
+  .ios-hint-howto-detail {
+    display: none;
+    margin-top: 10px;
+    padding-top: 10px;
+    border-top: 1px solid rgba(106, 138, 138, 0.15);
+    font-size: 12px;
+    color: var(--ink-soft);
+    line-height: 1.8;
+  }
+  .ios-hint.expanded .ios-hint-howto-detail {
+    display: block;
+  }
+  .ios-hint-step {
+    display: flex;
+    gap: 8px;
+    align-items: flex-start;
+    margin-bottom: 4px;
+  }
+  .ios-hint-step-num {
+    width: 18px;
+    height: 18px;
+    border-radius: 50%;
+    background: var(--accent);
+    color: white;
+    font-size: 10px;
+    line-height: 18px;
+    text-align: center;
+    flex-shrink: 0;
+    font-family: 'Cormorant Garamond', serif;
+  }
+
+  /* 匯出/匯入按鈕(個人檔案頁) */
+  .data-actions {
+    display: flex;
+    gap: 8px;
+    width: 100%;
+    max-width: 380px;
+    margin-top: 12px;
+  }
+  .data-btn {
+    flex: 1;
+    padding: 10px 14px;
+    background: rgba(255, 255, 255, 0.5);
+    border: 1px solid rgba(106, 138, 138, 0.2);
+    border-radius: 10px;
+    color: var(--ink-soft);
+    font-size: 12px;
+    cursor: pointer;
+    font-family: 'Noto Serif TC', serif;
+    letter-spacing: 2px;
+    transition: all 0.2s;
+  }
+  .data-btn:hover {
+    background: rgba(255, 255, 255, 0.8);
+    color: var(--ink);
+  }
+  .import-input {
+    display: none;
+  }
+
+  /* === Landing Page === */
+  #screen-landing {
+    cursor: pointer;
+  }
+
+  /* Landing 背景:覆蓋預設背景,改為米紙感漸層 */
+  #screen-landing::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(180deg,
+      #f6f1e4 0%,
+      #ece7d4 55%,
+      #d8d6c8 100%);
+    z-index: 0;
+  }
+
+  /* Landing 場景容器(光影 + 線條) */
+  .landing-scenery {
+    position: absolute;
+    inset: 0;
+    overflow: hidden;
+    pointer-events: none;
+    z-index: 1;
+  }
+
+  /* 中央光源(呼吸式擴大縮小) */
+  .light-source {
+    position: absolute;
+    top: 35%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    width: 90vw;
+    height: 90vw;
+    max-width: 800px;
+    max-height: 800px;
+    background: radial-gradient(circle,
+      rgba(255, 240, 215, 0.55) 0%,
+      rgba(245, 230, 200, 0.25) 25%,
+      rgba(220, 215, 195, 0.1) 50%,
+      transparent 70%);
+    filter: blur(30px);
+    animation: lightBreathe 8s ease-in-out infinite;
+  }
+  @keyframes lightBreathe {
+    0%, 100% { transform: translate(-50%, -50%) scale(0.95); opacity: 0.7; }
+    50% { transform: translate(-50%, -50%) scale(1.1); opacity: 1; }
+  }
+
+  /* 側光暈 */
+  .light-side {
+    position: absolute;
+    top: -10%;
+    right: -20%;
+    width: 70vh;
+    height: 70vh;
+    background: radial-gradient(circle,
+      rgba(255, 235, 195, 0.3) 0%,
+      transparent 60%);
+    filter: blur(40px);
+    animation: lightBreathe 12s ease-in-out infinite 2s;
+  }
+
+  /* 三條呼吸線(SVG 動態) */
+  .breath-line {
+    position: absolute;
+    bottom: 30%;
+    left: 0;
+    width: 100%;
+    height: 80px;
+    overflow: visible;
+  }
+  .breath-line svg { width: 100%; height: 100%; overflow: visible; }
+  .breath-line path {
+    fill: none;
+    stroke: rgba(61, 79, 79, 0.35);
+    stroke-width: 1;
+    stroke-linecap: round;
+    animation: lineBreathe 8s ease-in-out infinite;
+  }
+  @keyframes lineBreathe {
+    0%, 100% {
+      d: path("M 0 40 Q 200 30, 400 35 T 800 35 T 1200 35 T 1600 35");
+      stroke-opacity: 0.3;
+    }
+    50% {
+      d: path("M 0 40 Q 200 50, 400 45 T 800 45 T 1200 45 T 1600 45");
+      stroke-opacity: 0.5;
+    }
+  }
+
+  .breath-line-2 {
+    position: absolute;
+    bottom: 22%;
+    left: 0;
+    width: 100%;
+    height: 80px;
+    overflow: visible;
+  }
+  .breath-line-2 svg { width: 100%; height: 100%; overflow: visible; }
+  .breath-line-2 path {
+    fill: none;
+    stroke: rgba(61, 79, 79, 0.18);
+    stroke-width: 0.8;
+    stroke-linecap: round;
+    animation: lineBreathe2 10s ease-in-out infinite 1s;
+  }
+  @keyframes lineBreathe2 {
+    0%, 100% {
+      d: path("M 0 40 Q 300 35, 600 38 T 1200 38 T 1800 38");
+      stroke-opacity: 0.18;
+    }
+    50% {
+      d: path("M 0 40 Q 300 45, 600 42 T 1200 42 T 1800 42");
+      stroke-opacity: 0.3;
+    }
+  }
+
+  .breath-line-3 {
+    position: absolute;
+    bottom: 14%;
+    left: 0;
+    width: 100%;
+    height: 60px;
+    overflow: visible;
+  }
+  .breath-line-3 svg { width: 100%; height: 100%; overflow: visible; }
+  .breath-line-3 path {
+    fill: none;
+    stroke: rgba(61, 79, 79, 0.18);
+    stroke-width: 0.6;
+    stroke-linecap: round;
+    opacity: 0.5;
+    animation: lineBreathe3 12s ease-in-out infinite 2s;
+  }
+  @keyframes lineBreathe3 {
+    0%, 100% { d: path("M 0 30 Q 400 28, 800 30 T 1600 30"); }
+    50% { d: path("M 0 30 Q 400 35, 800 32 T 1600 32"); }
+  }
+
+  /* 地平線柔光 */
+  .horizon-glow {
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    height: 40vh;
+    background: linear-gradient(to top,
+      rgba(245, 235, 215, 0.5) 0%,
+      rgba(232, 228, 213, 0.3) 30%,
+      transparent 100%);
+  }
+
+  /* Landing 主內容 */
+  .landing-content {
+    position: relative;
+    z-index: 10;
+    text-align: center;
+    margin: auto 0;
+  }
+
+  .landing-title {
+    font-family: 'Noto Serif TC', serif;
+    font-size: 50px;
+    font-weight: 400;
+    color: #2a3a3a;
+    letter-spacing: 16px;
+    line-height: 1.15;
+    text-shadow: 0 1px 30px rgba(255, 255, 255, 0.5);
+    opacity: 0;
+    animation: landingFadeUp 1.6s ease 0.4s forwards;
+  }
+  .landing-divider {
+    width: 28px;
+    height: 1px;
+    background: var(--ink-soft);
+    margin: 26px auto;
+    opacity: 0;
+    animation: landingFadeIn 1.5s ease 1s forwards;
+  }
+  .landing-tagline {
+    font-family: 'Cormorant Garamond', serif;
+    font-size: 12px;
+    color: var(--ink-soft);
+    letter-spacing: 8px;
+    font-weight: 300;
+    opacity: 0;
+    animation: landingFadeUp 1.5s ease 1.2s forwards;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 16px;
+  }
+  /* Landing 內部字組(8 秒呼吸週期,延後 3 秒開始,等淡入完才進入呼吸) */
+  .ltag-word {
+    display: inline-block;
+    animation: ltagBreathe 8s ease-in-out 3s infinite;
+  }
+  .ltag-pause {
+    animation-name: ltagBreathePause;
+  }
+  .ltag-peace {
+    animation-name: ltagBreathePeace;
+  }
+  .ltag-dot {
+    opacity: 0.3;
+    animation: ltagDotPulse 8s ease-in-out 3s infinite;
+  }
+  @keyframes ltagBreathePause {
+    0%   { opacity: 0.25; }
+    25%  { opacity: 1;    }   /* 吸氣峰值 */
+    50%  { opacity: 0.25; }
+    100% { opacity: 0.25; }
+  }
+  @keyframes ltagBreathePeace {
+    0%   { opacity: 0.25; }
+    50%  { opacity: 0.25; }
+    75%  { opacity: 1;    }   /* 吐氣峰值 */
+    100% { opacity: 0.25; }
+  }
+  @keyframes ltagDotPulse {
+    0%, 100% { opacity: 0.2; }
+    25%      { opacity: 0.5; }
+    50%      { opacity: 0.3; }
+    75%      { opacity: 0.5; }
+  }
+  @keyframes landingFadeUp {
+    from { opacity: 0; transform: translateY(15px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+  @keyframes landingFadeIn {
+    from { opacity: 0; }
+    to { opacity: 0.4; }
+  }
+
+  /* Landing 進入提示 */
+  .landing-hint {
+    position: absolute;
+    bottom: 70px;
+    left: 50%;
+    transform: translateX(-50%);
+    text-align: center;
+    z-index: 10;
+    opacity: 0;
+    animation: hintFadeIn 1.5s ease 2.4s forwards;
+  }
+  .landing-hint-text {
+    font-size: 11px;
+    color: var(--ink-light);
+    letter-spacing: 6px;
+    margin-bottom: 14px;
+  }
+  .landing-hint-dot {
+    width: 4px;
+    height: 4px;
+    border-radius: 50%;
+    background: var(--ink-light);
+    margin: 0 auto;
+    animation: dotPulse 3s ease-in-out infinite 3s;
+  }
+
+  /* Landing 底部免責聲明 */
+  .landing-disclaimer {
+    position: absolute;
+    bottom: 18px;
+    left: 50%;
+    transform: translateX(-50%);
+    text-align: center;
+    z-index: 10;
+    font-size: 10px;
+    color: var(--ink-light);
+    letter-spacing: 1.5px;
+    line-height: 1.7;
+    opacity: 0;
+    width: calc(100% - 40px);
+    max-width: 380px;
+    animation: landingFadeIn 1.5s ease 3s forwards;
+  }
+  @keyframes hintFadeIn {
+    from { opacity: 0; }
+    to { opacity: 0.7; }
+  }
+  @keyframes dotPulse {
+    0%, 100% { opacity: 0.3; transform: scale(0.7); }
+    50% { opacity: 1; transform: scale(1.2); }
+  }
+
+  /* === 首頁 === */
+  #screen-home {
+    justify-content: flex-start;
+    padding-top: 70px;
+    overflow-y: auto;
+  }
+  .home-header {
+    text-align: center;
+    margin-bottom: 32px;
+  }
+  .home-title {
+    font-family: 'Noto Serif TC', serif;
+    font-size: 32px;
+    font-weight: 500;
+    color: var(--ink);
+    letter-spacing: 8px;
+  }
+  .home-tagline {
+    font-family: 'Cormorant Garamond', serif;
+    font-size: 12px;
+    color: var(--ink-soft);
+    letter-spacing: 6px;
+    margin-top: 8px;
+  }
+
+  /* 模式列表(舊樣式保留供它處使用) */
+  .mode-list {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    width: 100%;
+    max-width: 380px;
+  }
+
+  /* === 分類卡片(首頁新版) === */
+  .category-list {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    width: 100%;
+    max-width: 380px;
+  }
+  .category-block {
+    background: var(--glass);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    border: 1px solid var(--glass-border);
+    border-radius: 16px;
+    box-shadow: var(--shadow);
+    overflow: hidden;
+    transition: all 0.4s ease;
+  }
+  .category-head {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    padding: 16px 18px;
+    cursor: pointer;
+    transition: background 0.3s;
+  }
+  .category-head:hover, .category-head:active {
+    background: rgba(255, 255, 255, 0.4);
+  }
+  .category-emoji {
+    font-size: 22px;
+    flex-shrink: 0;
+    width: 32px;
+    text-align: center;
+  }
+  .category-info {
+    flex: 1;
+  }
+  .category-name {
+    font-size: 16px;
+    font-weight: 500;
+    color: var(--ink);
+    letter-spacing: 2px;
+    margin-bottom: 2px;
+  }
+  .category-desc {
+    font-size: 12px;
+    color: var(--ink-soft);
+    letter-spacing: 0.5px;
+  }
+  .category-arrow {
+    flex-shrink: 0;
+    transition: transform 0.4s ease;
+    color: var(--ink-soft);
+  }
+  .category-arrow svg {
+    width: 16px;
+    height: 16px;
+    stroke: currentColor;
+    fill: none;
+    stroke-width: 2;
+  }
+  .category-block.expanded .category-arrow {
+    transform: rotate(180deg);
+  }
+
+  .category-modes {
+    max-height: 0;
+    overflow: hidden;
+    transition: max-height 0.5s ease;
+    padding: 0 18px;
+  }
+  .category-block.expanded .category-modes {
+    max-height: 500px;
+    padding: 0 18px 14px;
+  }
+
+  .mode-card-mini {
+    padding: 12px 14px;
+    margin-top: 6px;
+    background: rgba(255, 255, 255, 0.4);
+    border: 1px solid rgba(255, 255, 255, 0.5);
+    border-radius: 10px;
+    cursor: pointer;
+    transition: all 0.25s;
+  }
+  .mode-card-mini:hover, .mode-card-mini:active {
+    background: rgba(255, 255, 255, 0.7);
+    transform: translateX(2px);
+  }
+  .mode-name-mini {
+    font-size: 14px;
+    font-weight: 500;
+    color: var(--ink);
+    letter-spacing: 1px;
+    margin-bottom: 2px;
+  }
+  .mode-desc-mini {
+    font-size: 11px;
+    color: var(--ink-soft);
+    letter-spacing: 0.3px;
+  }
+  .mode-card {
+    background: var(--glass);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    border: 1px solid var(--glass-border);
+    border-radius: 16px;
+    padding: 16px 18px;
+    cursor: pointer;
+    transition: all 0.4s ease;
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    box-shadow: var(--shadow);
+  }
+  .mode-card:hover, .mode-card:active {
+    background: rgba(255, 255, 255, 0.7);
+    transform: translateY(-2px);
+  }
+  .mode-icon {
+    width: 44px;
+    height: 44px;
+    border-radius: 50%;
+    background: rgba(106, 138, 138, 0.15);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+  }
+  .mode-icon svg {
+    width: 22px;
+    height: 22px;
+    stroke: var(--accent);
+    fill: none;
+    stroke-width: 1.5;
+    stroke-linecap: round;
+  }
+  .mode-info { flex: 1; }
+  .mode-name {
+    font-size: 16px;
+    font-weight: 500;
+    color: var(--ink);
+    margin-bottom: 3px;
+    letter-spacing: 1.5px;
+  }
+  .mode-desc {
+    font-size: 12px;
+    color: var(--ink-soft);
+    letter-spacing: 0.5px;
+  }
+
+  .home-quote-foot {
+    margin-top: 32px;
+    text-align: center;
+    font-size: 13px;
+    color: var(--ink-soft);
+    letter-spacing: 2px;
+    line-height: 1.8;
+    max-width: 320px;
+  }
+
+  /* === 設定頁 === */
+  #screen-settings, #screen-safety {
+    justify-content: flex-start;
+    padding-top: 80px;
+    overflow-y: auto;
+  }
+  .settings-card {
+    width: 100%;
+    max-width: 380px;
+    background: var(--glass);
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+    border: 1px solid var(--glass-border);
+    border-radius: 22px;
+    padding: 28px 24px;
+    box-shadow: var(--shadow);
+  }
+  .setting-title {
+    font-size: 22px;
+    font-weight: 500;
+    color: var(--ink);
+    letter-spacing: 4px;
+    margin-bottom: 6px;
+  }
+  .setting-sub {
+    font-size: 12px;
+    color: var(--ink-soft);
+    letter-spacing: 2px;
+    margin-bottom: 22px;
+  }
+  .setting-info {
+    font-size: 14px;
+    color: var(--ink);
+    line-height: 1.95;
+    background: rgba(106, 138, 138, 0.1);
+    border-left: 2px solid var(--accent);
+    padding: 14px 16px;
+    border-radius: 8px;
+    margin-bottom: 20px;
+    letter-spacing: 0.5px;
+  }
+  .primary-btn {
+    width: 100%;
+    padding: 14px;
+    background: var(--ink);
+    color: var(--paper);
+    border: none;
+    border-radius: 12px;
+    font-size: 14px;
+    font-weight: 500;
+    letter-spacing: 6px;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    margin-top: 10px;
+    font-family: 'Noto Serif TC', serif;
+  }
+  .primary-btn:hover, .primary-btn:active {
+    background: var(--ink-soft);
+    transform: translateY(-1px);
+  }
+  .primary-btn:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+    transform: none;
+  }
+
+  /* 滑桿 */
+  .setting-row {
+    margin-bottom: 18px;
+  }
+  .setting-label {
+    font-size: 13px;
+    color: var(--ink-soft);
+    margin-bottom: 10px;
+    display: flex;
+    justify-content: space-between;
+    letter-spacing: 1px;
+  }
+  .setting-value {
+    color: var(--accent);
+    font-weight: 600;
+  }
+  .setting-tip {
+    font-size: 11px;
+    color: var(--ink-light);
+    margin-top: 6px;
+    letter-spacing: 0.5px;
+  }
+  input[type="range"] {
+    -webkit-appearance: none;
+    width: 100%;
+    height: 3px;
+    background: rgba(106, 138, 138, 0.2);
+    border-radius: 2px;
+    outline: none;
+  }
+  input[type="range"]::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    width: 18px;
+    height: 18px;
+    background: white;
+    border: 2px solid var(--accent);
+    border-radius: 50%;
+    cursor: pointer;
+    box-shadow: 0 2px 6px rgba(106, 138, 138, 0.2);
+  }
+  input[type="range"]::-moz-range-thumb {
+    width: 18px;
+    height: 18px;
+    background: white;
+    border: 2px solid var(--accent);
+    border-radius: 50%;
+    cursor: pointer;
+    border: none;
+  }
+  .ghost-btn {
+    background: transparent;
+    color: var(--ink-soft);
+    border: none;
+    font-size: 13px;
+    padding: 10px 20px;
+    margin-top: 14px;
+    cursor: pointer;
+    letter-spacing: 3px;
+    font-family: 'Noto Serif TC', serif;
+  }
+
+  /* === 倒數頁 === */
+  #screen-countdown {
+    justify-content: center;
+  }
+  #countdown-number {
+    font-family: 'Cormorant Garamond', serif;
+    font-size: 180px;
+    font-weight: 300;
+    color: var(--ink);
+    letter-spacing: -6px;
+    transition: all 0.5s ease;
+    text-shadow: 0 0 80px rgba(106, 138, 138, 0.3);
+  }
+  #countdown-label {
+    font-family: 'Cormorant Garamond', serif;
+    font-size: 14px;
+    color: var(--ink-soft);
+    letter-spacing: 8px;
+    margin-top: 30px;
+  }
+
+  /* === 呼吸練習頁 === */
+  #screen-breathe {
+    justify-content: space-between;
+    padding: 50px 24px 36px;
+  }
+
+  .breathe-header {
+    text-align: center;
+    width: 100%;
+    z-index: 5;
+  }
+  .breathe-mode-name {
+    font-size: 13px;
+    color: var(--ink-soft);
+    letter-spacing: 6px;
+    margin-bottom: 8px;
+  }
+  .breathe-timer {
+    font-family: 'Cormorant Garamond', serif;
+    font-size: 28px;
+    font-weight: 300;
+    color: var(--ink);
+    letter-spacing: 3px;
+  }
+
+  /* 中央顯示區(取代球體) - 呼吸引導文字 */
+  .breath-stage {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    width: 100%;
+    z-index: 5;
+    gap: 32px;
+    padding: 20px 0;
+  }
+
+  .breath-cue-large {
+    font-family: 'Noto Serif TC', serif;
+    font-size: 56px;
+    font-weight: 300;
+    color: var(--ink);
+    letter-spacing: 12px;
+    opacity: 0.85;
+    transition: opacity 0.6s ease, transform 1s ease;
+    text-align: center;
+    min-height: 80px;
+    display: flex;
+    align-items: center;
+  }
+
+  /* 動態節拍指示(取代節拍點，改為呼吸進度條) */
+  .breath-progress-wrap {
+    width: 200px;
+    height: 3px;
+    background: rgba(58, 74, 77, 0.1);
+    border-radius: 2px;
+    overflow: hidden;
+    position: relative;
+  }
+  .breath-progress {
+    position: absolute;
+    top: 0; left: 0;
+    height: 100%;
+    background: var(--accent);
+    border-radius: 2px;
+    transition: background 1s ease;
+  }
+  .breath-progress.warm { background: var(--accent-warm); }
+
+  /* 引導文字 / 金句區 */
+  .guide-area {
+    text-align: center;
+    max-width: 320px;
+    min-height: 80px;
+    opacity: 0;
+    transition: opacity 1s ease;
+  }
+  .guide-area.visible { opacity: 0.9; }
+  .guide-text {
+    font-size: 16px;
+    color: var(--ink);
+    line-height: 1.9;
+    letter-spacing: 1px;
+  }
+  .guide-text strong {
+    display: block;
+    font-size: 18px;
+    color: var(--accent);
+    font-weight: 500;
+    margin-bottom: 4px;
+    letter-spacing: 4px;
+  }
+  .quote-author {
+    font-family: 'Cormorant Garamond', serif;
+    font-size: 11px;
+    color: var(--ink-light);
+    letter-spacing: 2px;
+    margin-top: 12px;
+  }
+
+  /* 底部控制 */
+  .breathe-footer {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 12px;
+    width: 100%;
+    z-index: 5;
+  }
+  .phase-text {
+    font-size: 12px;
+    color: var(--ink-soft);
+    letter-spacing: 8px;
+    height: 16px;
+  }
+  .control-row {
+    display: flex;
+    gap: 10px;
+  }
+  .icon-btn {
+    width: 44px;
+    height: 44px;
+    border-radius: 50%;
+    background: rgba(255, 255, 255, 0.6);
+    backdrop-filter: blur(8px);
+    border: 1px solid var(--glass-border);
+    color: var(--ink-soft);
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.2s;
+  }
+  .icon-btn:hover { background: rgba(255, 255, 255, 0.85); }
+  .icon-btn svg {
+    width: 16px; height: 16px;
+    stroke: currentColor; fill: none; stroke-width: 1.8;
+  }
+
+  /* === 結束反饋頁 === */
+  #screen-end {
+    justify-content: center;
+  }
+  .feedback-card {
+    width: 100%;
+    max-width: 380px;
+    background: var(--glass);
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+    border: 1px solid var(--glass-border);
+    border-radius: 22px;
+    padding: 32px 24px;
+    text-align: center;
+    box-shadow: var(--shadow);
+  }
+  .feedback-quote {
+    font-family: 'Noto Serif TC', serif;
+    font-size: 17px;
+    line-height: 2.1;
+    color: var(--ink);
+    font-weight: 400;
+    letter-spacing: 1.5px;
+    padding: 20px;
+    background: rgba(106, 138, 138, 0.08);
+    border-radius: 12px;
+    border-left: 2px solid var(--accent);
+    text-align: left;
+    margin-bottom: 16px;
+  }
+  .feedback-quote-author {
+    font-family: 'Cormorant Garamond', serif;
+    font-size: 12px;
+    color: var(--ink-light);
+    letter-spacing: 2px;
+    text-align: right;
+    display: block;
+    margin-top: 12px;
+  }
+  .gentle-note {
+    font-size: 13px;
+    color: var(--ink-soft);
+    line-height: 1.85;
+    margin-top: 18px;
+    letter-spacing: 1px;
+  }
+
+  /* 感受標籤 */
+  .feedback-question {
+    font-size: 14px;
+    color: var(--ink-soft);
+    margin-top: 22px;
+    margin-bottom: 14px;
+    letter-spacing: 3px;
+    text-align: center;
+  }
+  .tag-grid {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    justify-content: center;
+    margin-bottom: 16px;
+  }
+  .tag {
+    padding: 8px 14px;
+    background: rgba(255, 255, 255, 0.5);
+    border: 1px solid rgba(106, 138, 138, 0.2);
+    border-radius: 18px;
+    font-size: 13px;
+    color: var(--ink-soft);
+    cursor: pointer;
+    transition: all 0.25s;
+    letter-spacing: 1px;
+  }
+  .tag:hover {
+    background: rgba(255, 255, 255, 0.8);
+  }
+  .tag.selected {
+    background: var(--ink);
+    color: var(--paper);
+    border-color: var(--ink);
+  }
+  .tag-hint {
+    font-size: 11px;
+    color: var(--ink-light);
+    text-align: center;
+    letter-spacing: 1.5px;
+    margin-bottom: 8px;
+  }
+
+  /* === 科學知識摺疊區 === */
+  .science-block {
+    margin-top: 22px;
+    border-top: 1px solid rgba(106, 138, 138, 0.15);
+    padding-top: 18px;
+  }
+  .science-toggle {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    cursor: pointer;
+    font-size: 13px;
+    color: var(--accent);
+    letter-spacing: 2px;
+    padding: 6px 0;
+    transition: color 0.2s;
+  }
+  .science-toggle:hover { color: var(--ink); }
+  .science-arrow {
+    width: 12px;
+    height: 12px;
+    stroke: currentColor;
+    fill: none;
+    stroke-width: 2;
+    transition: transform 0.4s ease;
+  }
+  .science-block.expanded .science-arrow {
+    transform: rotate(180deg);
+  }
+  .science-content {
+    max-height: 0;
+    overflow: hidden;
+    transition: max-height 0.5s ease, padding 0.5s ease;
+    text-align: left;
+    color: var(--ink);
+    font-size: 13px;
+    line-height: 1.85;
+    letter-spacing: 0.5px;
+  }
+  .science-block.expanded .science-content {
+    max-height: 800px;
+    padding: 14px 4px 4px;
+  }
+  .science-content .ref {
+    font-family: 'Cormorant Garamond', serif;
+    font-size: 12px;
+    color: var(--ink-soft);
+    margin-top: 12px;
+    padding-top: 10px;
+    border-top: 1px dashed rgba(106, 138, 138, 0.2);
+    letter-spacing: 1px;
+  }
+</style>
+</head>
+<body>
+
+<!-- 呼吸背景色塊 -->
+<div class="breath-bg" id="breath-bg"></div>
+
+<!-- 呼吸光暈(球的取代) -->
+<div class="breath-glow" id="breath-glow"></div>
+
+<!-- Logo 浮水印 -->
+<div class="logo-corner">
+  <div class="logo-box">練</div>
+  <span class="logo-text-mini">小憩。練息</span>
+</div>
+
+<!-- 右上個人入口(僅在首頁顯示) -->
+<div class="profile-corner" id="profile-entry" onclick="showProfile()" style="display:none;" title="我的紀錄">
+  <svg viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4.4 3.6-8 8-8s8 3.6 8 8"/></svg>
+</div>
+
+<!-- === Landing Page === -->
+<div class="screen active" id="screen-landing" onclick="goToHome()">
+
+  <!-- 光影 + 線條場景 -->
+  <div class="landing-scenery">
+    <div class="light-source"></div>
+    <div class="light-side"></div>
+
+    <!-- 三條呼吸線 -->
+    <div class="breath-line">
+      <svg viewBox="0 0 1600 80" preserveAspectRatio="none">
+        <path d="M 0 40 Q 200 30, 400 35 T 800 35 T 1200 35 T 1600 35" />
+      </svg>
+    </div>
+    <div class="breath-line-2">
+      <svg viewBox="0 0 1800 80" preserveAspectRatio="none">
+        <path d="M 0 40 Q 300 35, 600 38 T 1200 38 T 1800 38" />
+      </svg>
+    </div>
+    <div class="breath-line-3">
+      <svg viewBox="0 0 1600 60" preserveAspectRatio="none">
+        <path d="M 0 30 Q 400 28, 800 30 T 1600 30" />
+      </svg>
+    </div>
+
+    <div class="horizon-glow"></div>
+  </div>
+
+  <!-- 主標題 -->
+  <div class="landing-content">
+    <h1 class="landing-title">小憩 · 練息</h1>
+    <div class="landing-divider"></div>
+    <div class="landing-tagline">
+      <span class="ltag-word ltag-pause">ONE&nbsp;PAUSE</span>
+      <span class="ltag-dot">·</span>
+      <span class="ltag-word ltag-peace">ONE&nbsp;PEACE</span>
+    </div>
+  </div>
+
+  <!-- 進入提示 -->
+  <div class="landing-hint">
+    <div class="landing-hint-text">輕 觸 進 入</div>
+    <div class="landing-hint-dot"></div>
+  </div>
+
+  <!-- 免責聲明 -->
+  <div class="landing-disclaimer">
+    本工具僅供放鬆與正念練習參考,不構成醫療建議。<br>
+    若有身心不適,請諮詢專業人士。
+  </div>
+
+</div>
+
+<!-- === 首頁 === -->
+<div class="screen" id="screen-home">
+  <div class="home-header">
+    <h1 class="home-title">小憩。練息</h1>
+    <div class="home-tagline">ONE&nbsp;PAUSE&nbsp;·&nbsp;ONE&nbsp;PEACE</div>
+  </div>
+
+  <div class="category-list">
+
+    <!-- 🟢 快速重啟 -->
+    <div class="category-block" data-category="reset">
+      <div class="category-head" onclick="toggleCategory('reset')">
+        <div class="category-emoji">🟢</div>
+        <div class="category-info">
+          <div class="category-name">快速重啟</div>
+          <div class="category-desc">壓力大、卡住、需要轉換時</div>
+        </div>
+        <div class="category-arrow">
+          <svg viewBox="0 0 24 24"><path d="M6 9l6 6 6-6"/></svg>
+        </div>
+      </div>
+      <div class="category-modes">
+        <div class="mode-card-mini" onclick="selectMode('three')">
+          <div class="mode-name-mini">正念三口呼吸</div>
+          <div class="mode-desc-mini">快速切換,重新定位</div>
+        </div>
+        <div class="mode-card-mini" onclick="selectMode('sigh')">
+          <div class="mode-name-mini">生理嘆氣</div>
+          <div class="mode-desc-mini">90 秒降焦慮</div>
+        </div>
+        <div class="mode-card-mini" onclick="selectMode('box')">
+          <div class="mode-name-mini">箱式呼吸</div>
+          <div class="mode-desc-mini">抗壓專注,4-4-4-4</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 🟡 日常修習 -->
+    <div class="category-block" data-category="daily">
+      <div class="category-head" onclick="toggleCategory('daily')">
+        <div class="category-emoji">🟡</div>
+        <div class="category-info">
+          <div class="category-name">日常修習</div>
+          <div class="category-desc">平衡、穩定、長期練習</div>
+        </div>
+        <div class="category-arrow">
+          <svg viewBox="0 0 24 24"><path d="M6 9l6 6 6-6"/></svg>
+        </div>
+      </div>
+      <div class="category-modes">
+        <div class="mode-card-mini" onclick="selectMode('baseline')">
+          <div class="mode-name-mini">諧振呼吸</div>
+          <div class="mode-desc-mini">調節自主神經系統</div>
+        </div>
+        <div class="mode-card-mini" onclick="selectMode('count')">
+          <div class="mode-name-mini">數息法</div>
+          <div class="mode-desc-mini">放鬆又專注</div>
+        </div>
+        <div class="mode-card-mini" onclick="selectMode('nadi')">
+          <div class="mode-name-mini">鼻孔交替呼吸</div>
+          <div class="mode-desc-mini">平衡左右,Nadi Shodhana</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 🔴 能量提振 -->
+    <div class="category-block" data-category="energy">
+      <div class="category-head" onclick="toggleCategory('energy')">
+        <div class="category-emoji">🔴</div>
+        <div class="category-info">
+          <div class="category-name">能量提振</div>
+          <div class="category-desc">疲憊、需要醒腦時</div>
+        </div>
+        <div class="category-arrow">
+          <svg viewBox="0 0 24 24"><path d="M6 9l6 6 6-6"/></svg>
+        </div>
+      </div>
+      <div class="category-modes">
+        <div class="mode-card-mini" onclick="selectMode('bhastrika')">
+          <div class="mode-name-mini">風箱呼吸</div>
+          <div class="mode-desc-mini">快速強烈,提神醒腦</div>
+        </div>
+        <div class="mode-card-mini" onclick="selectMode('lion')">
+          <div class="mode-name-mini">獅子吼</div>
+          <div class="mode-desc-mini">釋放下顎緊繃</div>
+        </div>
+        <div class="mode-card-mini" onclick="selectMode('wimhof')">
+          <div class="mode-name-mini">冰人呼吸法</div>
+          <div class="mode-desc-mini">冷靜免疫,深度練習</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 🟣 深度調節 -->
+    <div class="category-block" data-category="deep">
+      <div class="category-head" onclick="toggleCategory('deep')">
+        <div class="category-emoji">🟣</div>
+        <div class="category-info">
+          <div class="category-name">深度調節</div>
+          <div class="category-desc">情緒釋放、深層轉化</div>
+        </div>
+        <div class="category-arrow">
+          <svg viewBox="0 0 24 24"><path d="M6 9l6 6 6-6"/></svg>
+        </div>
+      </div>
+      <div class="category-modes">
+        <div class="mode-card-mini" onclick="selectMode('rebirth')">
+          <div class="mode-name-mini">重生呼吸</div>
+          <div class="mode-desc-mini">激烈釋放與轉化</div>
+        </div>
+        <div class="mode-card-mini" onclick="selectMode('tonglen')">
+          <div class="mode-name-mini">慈心呼吸</div>
+          <div class="mode-desc-mini">吸入痛苦,吐出愛</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 💤 助眠放鬆 -->
+    <div class="category-block" data-category="sleep">
+      <div class="category-head" onclick="toggleCategory('sleep')">
+        <div class="category-emoji">💤</div>
+        <div class="category-info">
+          <div class="category-name">助眠放鬆</div>
+          <div class="category-desc">睡前、放鬆</div>
+        </div>
+        <div class="category-arrow">
+          <svg viewBox="0 0 24 24"><path d="M6 9l6 6 6-6"/></svg>
+        </div>
+      </div>
+      <div class="category-modes">
+        <div class="mode-card-mini" onclick="selectMode('sleep478')">
+          <div class="mode-name-mini">4-7-8 呼吸</div>
+          <div class="mode-desc-mini">助眠經典</div>
+        </div>
+        <div class="mode-card-mini" onclick="selectMode('scan')">
+          <div class="mode-name-mini">身體掃描</div>
+          <div class="mode-desc-mini">深度放鬆,從頭到腳</div>
+        </div>
+        <div class="mode-card-mini" onclick="selectMode('exhale')">
+          <div class="mode-name-mini">延長吐氣</div>
+          <div class="mode-desc-mini">快速冷靜,4-8</div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <div class="home-quote-foot">呼吸,是回到自己的最快路徑</div>
+</div>
+
+<!-- === 設定頁 === -->
+<div class="screen" id="screen-settings">
+  <div class="settings-card">
+    <div class="setting-title" id="set-title">諧振呼吸</div>
+    <div class="setting-sub" id="set-sub">調節自主神經系統</div>
+    <div class="setting-info" id="set-info">
+      研究顯示,每分鐘 6 次的呼吸頻率(0.1Hz),最能有效調節自主神經系統,提升心率變異性(HRV),讓身心進入諧振狀態。<br><br>本練習固定 6 BPM,預設 5 分鐘。
+    </div>
+
+    <!-- BPM 滑桿(可選) -->
+    <div class="setting-row" id="bpm-row" style="display:none;">
+      <div class="setting-label">
+        <span id="bpm-label">呼吸頻率</span>
+        <span><span class="setting-value" id="bpm-val">6</span> 次 / 分</span>
+      </div>
+      <input type="range" id="bpm-slider" min="3" max="7" step="1" value="6">
+      <div class="setting-tip" id="bpm-tip" style="display:none;"></div>
+    </div>
+
+    <!-- 第二階段 BPM(僅重生呼吸) -->
+    <div class="setting-row" id="bpm2-row" style="display:none;">
+      <div class="setting-label">
+        <span>第二階段頻率</span>
+        <span><span class="setting-value" id="bpm2-val">4</span> 次 / 分</span>
+      </div>
+      <input type="range" id="bpm2-slider" min="3" max="5" step="1" value="4">
+      <div class="setting-tip" id="bpm2-tip" style="display:none;"></div>
+    </div>
+
+    <!-- 時長 / 回合 -->
+    <div class="setting-row" id="dur-row" style="display:none;">
+      <div class="setting-label">
+        <span id="dur-label">練習時長</span>
+        <span id="dur-unit"><span class="setting-value" id="dur-val">5</span> 分鐘</span>
+      </div>
+      <input type="range" id="dur-slider" min="1" max="15" step="1" value="5">
+    </div>
+
+    <button class="primary-btn" onclick="beginCountdown()">開　始</button>
+  </div>
+  <button class="ghost-btn" onclick="goToHome()">← 返回</button>
+</div>
+
+<!-- === 安全核取頁(重生呼吸) === -->
+<div class="screen" id="screen-safety">
+  <div class="settings-card" style="background:rgba(255,240,225,0.6); border-color:rgba(201,122,74,0.3);">
+    <div class="setting-title" style="color:#c97a4a;">⚠ <span id="safety-title-text">安全提醒</span></div>
+    <ul id="safety-list" style="list-style:none; margin:18px 0;"></ul>
+    <label style="display:flex; gap:10px; align-items:flex-start; padding:12px; background:rgba(255,255,255,0.5); border-radius:10px; cursor:pointer; margin-bottom:14px;">
+      <input type="checkbox" id="safety-confirm" onchange="toggleSafetyConfirm()" style="margin-top:3px; width:16px; height:16px; accent-color:#c97a4a;">
+      <span style="font-size:13px; color:var(--ink); line-height:1.5;">我已閱讀以上提醒,並了解此練習的注意事項</span>
+    </label>
+    <button class="primary-btn" id="safety-start-btn" disabled onclick="proceedToSettings()" style="background:#c97a4a;">同意並繼續</button>
+  </div>
+  <button class="ghost-btn" onclick="goToHome()">← 返回</button>
+</div>
+
+<!-- === 倒數頁 === -->
+<div class="screen" id="screen-countdown">
+  <div id="countdown-number">3</div>
+  <div id="countdown-label">即 將 開 始</div>
+</div>
+
+<!-- === 呼吸練習頁 === -->
+<div class="screen" id="screen-breathe">
+  <div class="breathe-header">
+    <div class="breathe-mode-name" id="bm-name">諧振呼吸</div>
+    <div class="breathe-timer" id="timer">05:00</div>
+  </div>
+
+  <div class="breath-stage">
+    <div class="breath-cue-large" id="cue">準備</div>
+    <div class="breath-progress-wrap">
+      <div class="breath-progress" id="progress" style="width:0%"></div>
+    </div>
+    <div class="guide-area" id="guide-area">
+      <div class="guide-text" id="guide-text"></div>
+    </div>
+  </div>
+
+  <div class="breathe-footer">
+    <div class="phase-text" id="phase">準備</div>
+    <div class="control-row">
+      <button class="icon-btn" onclick="endSession()" title="結束">
+        <svg viewBox="0 0 24 24"><rect x="6" y="6" width="12" height="12" rx="2"/></svg>
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- === 結束頁 === -->
+<div class="screen" id="screen-end">
+  <div class="feedback-card">
+    <div class="feedback-quote" id="end-quote">
+      此刻,你正回到自己的節奏。<br>每一次呼吸都剛剛好。
+    </div>
+
+    <div class="feedback-question">此 刻 你 的 感 受</div>
+    <div class="tag-hint">可選 1-3 個</div>
+    <div class="tag-grid" id="tag-grid"></div>
+
+    <!-- 科學知識摺疊區 -->
+    <div class="science-block" id="science-block" style="display:none;">
+      <div class="science-toggle" onclick="toggleScience()">
+        <span id="science-title">為什麼有效?</span>
+        <svg class="science-arrow" viewBox="0 0 24 24"><path d="M6 9l6 6 6-6"/></svg>
+      </div>
+      <div class="science-content" id="science-content"></div>
+    </div>
+
+    <div class="gentle-note">發覺分心是正常的。<br>溫柔地帶回來就好。</div>
+    <button class="primary-btn" style="margin-top:24px;" onclick="goToHome()">回 到 首 頁</button>
+  </div>
+</div>
+
+<!-- === 個人檔案頁 === -->
+<div class="screen" id="screen-profile">
+  <div class="profile-header">
+    <div class="profile-title">我 的 紀 錄</div>
+    <div class="profile-sub">MY&nbsp;PRACTICE</div>
+  </div>
+
+  <!-- 主要數據 -->
+  <div class="profile-card">
+    <div class="profile-stats">
+      <div class="stat-block">
+        <div class="stat-num" id="stat-sessions">0</div>
+        <div class="stat-unit">至今練習</div>
+      </div>
+      <div class="stat-block">
+        <div class="stat-num" id="stat-minutes">0</div>
+        <div class="stat-unit">累計分鐘</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 模式排行 -->
+  <div class="profile-card">
+    <div class="profile-card-title">最 常 練 習</div>
+    <div id="mode-rank" class="mode-rank-list">
+      <div class="profile-empty">還沒有紀錄,<br>做完一次練習就會出現囉。</div>
+    </div>
+  </div>
+
+  <!-- 月曆 -->
+  <div class="profile-card">
+    <div class="profile-card-title">本 月 練 習</div>
+    <div class="calendar-month" id="calendar-month">2026 年 5 月</div>
+    <div class="calendar-grid" id="calendar-grid"></div>
+  </div>
+
+  <!-- 感受標籤雲 -->
+  <div class="profile-card">
+    <div class="profile-card-title">最 常 感 受</div>
+    <div id="feeling-cloud" class="feeling-cloud">
+      <div class="profile-empty">當你結束練習並選擇感受標籤,<br>會在這裡累積呈現。</div>
+    </div>
+  </div>
+
+  <div class="data-actions">
+    <button class="data-btn" onclick="exportProfile()">匯 出 紀 錄</button>
+    <button class="data-btn" onclick="document.getElementById('import-input').click()">匯 入 紀 錄</button>
+    <input type="file" id="import-input" class="import-input" accept=".json" onchange="importProfile(event)">
+  </div>
+
+  <button class="ghost-btn" onclick="goToHome()">← 返回</button>
+  <button class="danger-btn" onclick="confirmClearProfile()">清 除 我 的 紀 錄</button>
+</div>
+
+<!-- === 加入主畫面 / 換瀏覽器 提示 === -->
+<div class="ios-hint" id="ios-hint">
+  <div class="ios-hint-title" id="hint-title"></div>
+  <div class="ios-hint-text" id="hint-text"></div>
+  <div class="ios-hint-howto-detail" id="hint-steps"></div>
+  <div class="ios-hint-actions">
+    <span class="ios-hint-close" onclick="dismissIosHint()">下次再說</span>
+    <span class="ios-hint-howto" onclick="toggleIosHowto()">怎麼做 →</span>
+  </div>
+</div>
+
+<script>
+// ===== 金句池(精簡版,給 prototype 用) =====
+const QUOTES = [
+  { text: '練習,是溫柔地把自己接回來。' },
+  { text: '看見發生的,而不是你想看到的。' },
+  { text: '身體比腦袋誠實,先聽身體說。' },
+  { text: '穩定,不是不動;是動了,還回得來。' },
+  { text: '光,是因為你願意看見黑暗。' },
+  { text: '練習沒有終點,所以也沒有遲到。' },
+  { text: '心走遠了沒關係,記得回來就好。' },
+  { text: '重點不是你跑掉幾次,是你回來了幾次。' },
+  { text: '呼吸不是用力堵住情緒,是讓它流動。' },
+  { text: '覺察,就是不評價地看著。' },
+  { text: '完美不是目標,真實才是。' },
+  { text: '對自己溫柔一點,世界會跟著鬆下來。' },
+  { text: '想法不是事實,只是想法而已。' },
+  { text: '你不必修好自己,你已經夠好。' },
+  { text: '靜不是消滅念頭,是不被念頭帶走。' },
+  { text: '你不是這些念頭,你是看著念頭的人。' },
+  { text: '練習,是給自己一個重新選擇的機會。' },
+  { text: '今天三分鐘,勝過完美的三十分鐘。' },
+  { text: '生氣的時候,先呼吸,再說話。' },
+  { text: '情緒會過去,但你必須先讓它經過。' },
+  { text: '心穩了,事情就沒有那麼糟。' },
+  { text: '別罵自己,你已經夠累了。' },
+  { text: '緊繃在哪裡,就把呼吸送到哪裡。' },
+  { text: '肩膀沉一點,世界就輕一點。' },
+  { text: '念頭來來去去,讓它就好。' },
+  { text: '焦慮時,把腳掌穩穩踏在地上。' },
+  { text: '心如湖水,念頭只是雲影。' },
+  { text: '三口呼吸,給自己一個小小的喘息。' },
+  { text: '焦慮,是腦袋已經跑到下個小時。' },
+  { text: '撐不住的時候,身體早就在求救了。' },
+  { text: '看清楚壓力的樣子,你就有空間。' },
+  { text: '幽默,是辛苦時最溫柔的解藥。' },
+  { text: '別跟情緒打架,跟它坐下來。' },
+  { text: '呼吸吐長一點,神經就慢下來。' },
+  { text: '難受的時候,身體在跟你講悄悄話。' },
+  { text: '每一口呼吸,都是新的開始。' },
+  { text: '願我平安,願我輕鬆。' },
+  { text: '舒服或不舒服,都讓它在。' },
+  { text: '心軟一點,自己就好過一點。' },
+  { text: '放鬆不是目標,是自然發生的事。' },
+  { text: '無效的會議,不代表你的時間也無效。' },
+  { text: '等紅燈時,也可以呼吸。' },
+  { text: '騎車的時候,感覺風,感覺手把。' },
+  { text: '通勤,是公私領域的轉場時間。' },
+  { text: '吃飯就好好吃,別配手機。' },
+  { text: '洗澡的時候,身體在洗,腦袋也休息。' },
+  { text: '工作累了,花三分鐘掃描身體。' },
+  { text: '多工不是效率,是錯誤的累積。' },
+  { text: '辦公室不是地獄,是你工作的地方。' },
+  { text: '看到不喜歡的同事,先深呼吸。' },
+  { text: '進辦公室的第一口氣,決定一整天。' },
+  { text: '心情起伏不必強化,知道就好。' },
+  { text: '散步的時候,看到什麼就看到什麼。' },
+  { text: '聽到鳥叫,聽到就好。' },
+  { text: '滑手機前,先問:我現在需要什麼?' },
+  { text: '空檔時數息 1 到 10,就能回血。' },
+  { text: '別等到撐不住才呼吸。' },
+  { text: '把時間花在真正重要的事情上。' },
+  { text: '專注,不是排除別人,是穩住自己。' },
+  { text: '正念吃早餐,別因為一個人就敷衍。' },
+  { text: '把睡眠當目標,反而睡不著。' },
+  { text: '讓睡眠自己來找你。' },
+  { text: '床是睡覺的地方,不是辦公室。' },
+  { text: '睡前把待辦事項寫下來,告訴自己明天再說。' },
+  { text: '疼痛二十四小時都在,但不必被它綁架。' },
+  { text: '改變和疼痛的關係,比消滅疼痛更重要。' },
+  { text: '覺察自己在憋氣,就是療癒的開始。' },
+  { text: '每一口氣,都在重建身體的平衡。' },
+  { text: '感覺冷、感覺熱、感覺麻,都是當下的真實。' },
+  { text: '麻、刺、緊,都是身體在說話。' },
+  { text: '傾聽焦慮,而不是被焦慮淹沒。' },
+  { text: '身體掃描,讓白天的緊繃慢慢沉澱。' },
+  { text: '只有現在,是真實的。' },
+  { text: '你怎麼做,都不會錯到哪裡去。' },
+  { text: '放慢呼吸,打開療癒的空間。' },
+  { text: '真正的深呼吸,是溫和而不費力的。' },
+  { text: '呼吸的彈性,就是生命的彈性。' },
+  { text: '痛苦,有時是最大的禮物。' },
+  { text: '你本來就是圓滿的,不必小看自己。' },
+  { text: '在每個瞬間死亡,在每個瞬間重生。' },
+  { text: '回轉到自己,就是最大的自由。' },
+  { text: '把腦海簡化,把心集中。' },
+  { text: '醒著,是你本來的樣子。' },
+  { text: '對下一個瞬間說 Yes。' },
+  { text: '沒有什麼,是非得怎樣不可。' },
+  { text: '這就是對的時間、對的地點。' },
+  { text: '向內轉,生活反而順暢。' },
+  { text: '生命,是一連串祝福的相遇。' },
+  { text: '你就是這口氣,這口氣就是你。' },
+  { text: '練習成為心跳,而不是只在墊上做。' }
+];
+function randomQuote() { return QUOTES[Math.floor(Math.random() * QUOTES.length)]; }
+
+// ===== 感受標籤(8 個) =====
+const FEELING_TAGS = [
+  '覺知提升', '肩膀鬆沉', '雜念中斷', '重獲專注',
+  '與整體連結', '情緒釋放', '深度解凍', '感到安定'
+];
+
+// ===== 個人紀錄系統(localStorage) =====
+const PROFILE_KEY = 'xiaoqi_profile_v1';
+
+function loadProfile() {
+  try {
+    const raw = localStorage.getItem(PROFILE_KEY);
+    if (!raw) return defaultProfile();
+    const p = JSON.parse(raw);
+    // 確保結構完整(防舊版資料)
+    return Object.assign(defaultProfile(), p);
+  } catch (e) {
+    return defaultProfile();
+  }
+}
+
+function defaultProfile() {
+  return {
+    sessions: 0,         // 累計練習次數
+    totalSeconds: 0,     // 累計練習秒數
+    modeStats: {},       // { three: 5, baseline: 12, ... }
+    practiceDays: [],    // ['2026-04-30', '2026-05-01', ...] 已練習日期
+    feelingStats: {}     // { '覺知提升': 3, '感到安定': 7, ... }
+  };
+}
+
+function saveProfile(p) {
+  try {
+    localStorage.setItem(PROFILE_KEY, JSON.stringify(p));
+  } catch (e) {
+    console.warn('Profile save failed', e);
+  }
+}
+
+function recordSession(modeKey, durationSec) {
+  const p = loadProfile();
+  p.sessions += 1;
+  p.totalSeconds += durationSec;
+  p.modeStats[modeKey] = (p.modeStats[modeKey] || 0) + 1;
+
+  // 紀錄今天日期(YYYY-MM-DD)
+  const today = todayStr();
+  if (!p.practiceDays.includes(today)) {
+    p.practiceDays.push(today);
+  }
+
+  saveProfile(p);
+}
+
+function recordFeelings(tags) {
+  if (!tags || tags.length === 0) return;
+  const p = loadProfile();
+  tags.forEach(tag => {
+    p.feelingStats[tag] = (p.feelingStats[tag] || 0) + 1;
+  });
+  saveProfile(p);
+}
+
+function todayStr() {
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+}
+
+// ===== 顯示個人檔案頁 =====
+function showProfile() {
+  const p = loadProfile();
+
+  // 主要數據
+  document.getElementById('stat-sessions').textContent = p.sessions;
+  document.getElementById('stat-minutes').textContent = Math.floor(p.totalSeconds / 60);
+
+  // 模式排行(取前 3)
+  const modeNames = {
+    three: '正念三口呼吸',
+    sigh: '生理嘆氣',
+    box: '箱式呼吸',
+    baseline: '諧振呼吸',
+    count: '數息法',
+    nadi: '鼻孔交替呼吸',
+    bhastrika: '風箱呼吸',
+    lion: '獅子吼',
+    wimhof: '冰人呼吸法',
+    rebirth: '重生呼吸',
+    tonglen: '慈心呼吸',
+    sleep478: '4-7-8 呼吸',
+    scan: '身體掃描',
+    exhale: '延長吐氣'
+  };
+  const modeRankEl = document.getElementById('mode-rank');
+  const sortedModes = Object.entries(p.modeStats)
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 3);
+
+  if (sortedModes.length === 0) {
+    modeRankEl.innerHTML = '<div class="profile-empty">還沒有紀錄,<br>做完一次練習就會出現囉。</div>';
+  } else {
+    const maxCount = sortedModes[0][1];
+    modeRankEl.innerHTML = sortedModes.map(([key, count], i) => {
+      const pct = (count / maxCount) * 100;
+      return `
+        <div class="mode-rank-item">
+          <div class="mode-rank-num">${i + 1}</div>
+          <div class="mode-rank-name">${modeNames[key] || key}</div>
+          <div class="mode-rank-bar-wrap">
+            <div class="mode-rank-bar" style="width:${pct}%"></div>
+          </div>
+          <div class="mode-rank-count">${count}</div>
+        </div>
+      `;
+    }).join('');
+  }
+
+  // 月曆(本月)
+  renderCalendar(p);
+
+  // 感受標籤雲
+  const feelingEl = document.getElementById('feeling-cloud');
+  const sortedFeelings = Object.entries(p.feelingStats)
+    .sort((a, b) => b[1] - a[1]);
+  if (sortedFeelings.length === 0) {
+    feelingEl.innerHTML = '<div class="profile-empty">當你結束練習並選擇感受標籤,<br>會在這裡累積呈現。</div>';
+  } else {
+    feelingEl.innerHTML = sortedFeelings.map(([tag, count]) =>
+      `<div class="feeling-tag">${tag}<span class="feeling-tag-count">×${count}</span></div>`
+    ).join('');
+  }
+
+  showScreen('screen-profile');
+  document.getElementById('profile-entry').style.display = 'none';
+}
+
+function renderCalendar(p) {
+  const now = new Date();
+  const year = now.getFullYear();
+  const month = now.getMonth();  // 0-11
+  const firstDay = new Date(year, month, 1).getDay();  // 0=日
+  const daysInMonth = new Date(year, month + 1, 0).getDate();
+  const todayDate = now.getDate();
+  const monthYearStr = `${year} 年 ${month + 1} 月`;
+
+  document.getElementById('calendar-month').textContent = monthYearStr;
+
+  const grid = document.getElementById('calendar-grid');
+  const weekdays = ['日', '一', '二', '三', '四', '五', '六'];
+  let html = weekdays.map(w => `<div class="cal-weekday">${w}</div>`).join('');
+
+  // 月初前的空格
+  for (let i = 0; i < firstDay; i++) {
+    html += '<div class="cal-day empty"></div>';
+  }
+
+  // 該月每一天
+  for (let d = 1; d <= daysInMonth; d++) {
+    const dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
+    const practiced = p.practiceDays.includes(dateStr);
+    const isToday = d === todayDate;
+    const cls = ['cal-day'];
+    if (practiced) cls.push('practiced');
+    if (isToday) cls.push('today');
+    html += `<div class="${cls.join(' ')}">${d}</div>`;
+  }
+
+  grid.innerHTML = html;
+}
+
+function confirmClearProfile() {
+  if (confirm('確定要清除所有練習紀錄嗎?\n此動作無法復原。')) {
+    localStorage.removeItem(PROFILE_KEY);
+    showProfile();  // 重新渲染為空狀態
+  }
+}
+
+// ===== 匯出紀錄(下載 JSON) =====
+function exportProfile() {
+  const p = loadProfile();
+  if (p.sessions === 0) {
+    alert('還沒有任何紀錄可以匯出。');
+    return;
+  }
+
+  // 加入匯出時的 metadata
+  const exportData = {
+    _meta: {
+      app: '小憩。練息',
+      exportedAt: new Date().toISOString(),
+      version: 1
+    },
+    profile: p
+  };
+
+  const blob = new Blob([JSON.stringify(exportData, null, 2)], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  // 檔名加上日期
+  const today = todayStr();
+  a.download = `xiaoqi_backup_${today}.json`;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+}
+
+// ===== 匯入紀錄(讀取 JSON) =====
+function importProfile(event) {
+  const file = event.target.files[0];
+  if (!file) return;
+
+  const reader = new FileReader();
+  reader.onload = (e) => {
+    try {
+      const data = JSON.parse(e.target.result);
+
+      // 檢查格式:支援兩種(有 _meta 包裝 或 純 profile)
+      let imported;
+      if (data._meta && data.profile) {
+        imported = data.profile;
+      } else if (data.sessions !== undefined) {
+        imported = data;
+      } else {
+        throw new Error('檔案格式不正確');
+      }
+
+      // 確認資料合理性
+      if (typeof imported.sessions !== 'number') {
+        throw new Error('資料結構不符合');
+      }
+
+      // 詢問:覆蓋還是合併
+      const current = loadProfile();
+      let action = 'overwrite';
+      if (current.sessions > 0) {
+        const choice = confirm(
+          `目前已有 ${current.sessions} 次練習紀錄。\n\n` +
+          `按「確定」=覆蓋(只保留匯入的資料)\n` +
+          `按「取消」=合併(將兩邊資料相加)`
+        );
+        action = choice ? 'overwrite' : 'merge';
+      }
+
+      let newProfile;
+      if (action === 'merge') {
+        newProfile = mergeProfiles(current, imported);
+      } else {
+        newProfile = Object.assign(defaultProfile(), imported);
+      }
+
+      saveProfile(newProfile);
+      showProfile();
+      alert(`匯入完成!\n累計練習 ${newProfile.sessions} 次。`);
+    } catch (err) {
+      alert('匯入失敗:檔案格式不正確或已損壞。\n\n' + err.message);
+    }
+    // 清空 input(讓使用者能重複匯入相同檔案)
+    event.target.value = '';
+  };
+  reader.readAsText(file);
+}
+
+// 合併兩份 profile(用於匯入時)
+function mergeProfiles(a, b) {
+  const result = defaultProfile();
+  result.sessions = a.sessions + b.sessions;
+  result.totalSeconds = a.totalSeconds + b.totalSeconds;
+
+  // modeStats 相加
+  result.modeStats = Object.assign({}, a.modeStats);
+  Object.entries(b.modeStats || {}).forEach(([k, v]) => {
+    result.modeStats[k] = (result.modeStats[k] || 0) + v;
+  });
+
+  // practiceDays 去重合併
+  const allDays = new Set([...(a.practiceDays || []), ...(b.practiceDays || [])]);
+  result.practiceDays = Array.from(allDays).sort();
+
+  // feelingStats 相加
+  result.feelingStats = Object.assign({}, a.feelingStats);
+  Object.entries(b.feelingStats || {}).forEach(([k, v]) => {
+    result.feelingStats[k] = (result.feelingStats[k] || 0) + v;
+  });
+
+  return result;
+}
+
+// ===== 加入主畫面 / 換瀏覽器 提示系統 =====
+const HINT_DISMISSED_KEY = 'xiaoqi_install_hint_dismissed';
+
+// 偵測使用環境,返回應顯示哪種提示
+function detectEnv() {
+  const ua = navigator.userAgent;
+
+  // 是否從主畫面開啟(iOS standalone or PWA)
+  const isStandalone = ('standalone' in window.navigator && window.navigator.standalone)
+    || window.matchMedia('(display-mode: standalone)').matches;
+  if (isStandalone) return 'standalone';  // 已是 App 模式,不顯示提示
+
+  // 偵測 LINE / Facebook / Instagram / WeChat / Twitter 內建瀏覽器
+  const isInAppBrowser =
+    /Line\//i.test(ua) ||
+    /FBAN|FBAV|FB_IAB/i.test(ua) ||      // Facebook
+    /Instagram/i.test(ua) ||
+    /MicroMessenger/i.test(ua) ||         // WeChat
+    /Twitter/i.test(ua);
+  if (isInAppBrowser) return 'inapp';
+
+  // iOS Safari
+  const isIOS = /iPad|iPhone|iPod/.test(ua);
+  const isSafariOnIOS = isIOS && /Safari/.test(ua) && !/CriOS|FxiOS|EdgiOS/.test(ua);
+  if (isSafariOnIOS) return 'ios-safari';
+
+  // Android Chrome
+  const isAndroid = /Android/.test(ua);
+  const isChromeOnAndroid = isAndroid && /Chrome/.test(ua) && !/Edg|OPR/.test(ua);
+  if (isChromeOnAndroid) return 'android-chrome';
+
+  // 其他(桌機、Mac Safari、Edge 等)不顯示
+  return 'other';
+}
+
+// 三套文案
+const HINT_CONTENTS = {
+  'inapp': {
+    title: '🔄 建議用瀏覽器開啟',
+    text: '你目前用的是 App 內建瀏覽器,<strong>練習紀錄關閉就會消失</strong>。<br>建議改用 Safari 或 Chrome 開啟,還能加到主畫面永久保留紀錄。',
+    steps: [
+      '點畫面右上角的「⋯」或選單',
+      '選擇「在 Safari 開啟」(iPhone)<br>或「在 Chrome 開啟」(Android)',
+      '在新瀏覽器中可加到主畫面'
+    ]
+  },
+  'ios-safari': {
+    title: '💡 紀錄想永久保留嗎?',
+    text: 'iPhone Safari 約 7 天會自動清除網站紀錄。<br>把這個工具<strong>加到主畫面</strong>,紀錄就會永久保留。',
+    steps: [
+      '點下方中間的「分享」按鈕<br>(方框上面有箭頭那個)',
+      '往下捲動,找到「加入主畫面」',
+      '點「加入」,桌面就會出現圖示'
+    ]
+  },
+  'android-chrome': {
+    title: '💡 加到主畫面,更方便',
+    text: '把這個工具<strong>加到主畫面</strong>,以後從桌面圖示一鍵打開,紀錄也能永久保留。',
+    steps: [
+      '點瀏覽器右上角的「⋮」選單',
+      '選擇「加到主畫面」或「安裝應用程式」',
+      '點「新增」,桌面就會出現圖示'
+    ]
+  }
+};
+
+function checkInstallHint() {
+  const env = detectEnv();
+  const content = HINT_CONTENTS[env];
+  if (!content) return;  // 不需要提示的環境
+
+  // 已被使用者關閉過?且未過期?
+  const dismissedUntil = localStorage.getItem(HINT_DISMISSED_KEY);
+  if (dismissedUntil && new Date(dismissedUntil) > new Date()) return;
+
+  // 渲染對應文案
+  document.getElementById('hint-title').textContent = content.title;
+  document.getElementById('hint-text').innerHTML = content.text;
+  const stepsHtml = content.steps.map((step, i) => `
+    <div class="ios-hint-step">
+      <div class="ios-hint-step-num">${i + 1}</div>
+      <div>${step}</div>
+    </div>
+  `).join('');
+  document.getElementById('hint-steps').innerHTML = stepsHtml;
+
+  // 延遲 3 秒顯示
+  setTimeout(() => {
+    document.getElementById('ios-hint').classList.add('show');
+  }, 3000);
+}
+
+function dismissIosHint() {
+  document.getElementById('ios-hint').classList.remove('show');
+  // 7 天內不再顯示
+  const expireDate = new Date();
+  expireDate.setDate(expireDate.getDate() + 7);
+  localStorage.setItem(HINT_DISMISSED_KEY, expireDate.toISOString());
+}
+
+function toggleIosHowto() {
+  document.getElementById('ios-hint').classList.toggle('expanded');
+}
+
+// 頁面載入後檢查
+window.addEventListener('load', () => {
+  checkInstallHint();
+});
+
+// ===== 模式設定 =====
+const MODES = {
+  // ============ 🟢 快速重啟組 ============
+  three: {
+    title: '正念三口呼吸',
+    sub: '快速切換,重新定位',
+    category: 'reset',
+    bpm: 5,
+    fixedBreaths: 3,
+    info: '只需要三口氣,幫你從緊繃中切換出來,重新看見此刻最重要的事。',
+    cues: { in: '吸', out: '吐' },
+    quote: '帶著清晰的覺知,<br>回到此刻最重要的事。',
+    guides: [
+      { title: '第一口', text: '聚焦呼吸感<br>涼涼地進來,溫溫地出去' },
+      { title: '第二口', text: '覺察接觸面<br>放鬆肩膀、感受腳踏實地' },
+      { title: '第三口', text: '此刻,什麼是<br>最重要的?' }
+    ],
+    science: {
+      title: '為什麼三口就有效?',
+      content: '即使是三次有意識的深呼吸,也能活化前額葉、降低杏仁核活性,讓注意力從自動駕駛模式回到當下。<br><br>「三口」的設計與正念減壓 (MBSR) 的「三步驟呼吸空間」(3-Minute Breathing Space) 概念相通:第一口覺察當下、第二口聚焦呼吸、第三口擴展到全身。是現代正念訓練的基礎入門。',
+      ref: 'Mindfulness-Based Stress Reduction (MBSR)、台灣正念領域實務應用'
+    },
+    feelingTags: ['雜念中斷', '感到安定', '呼吸變慢', '肩膀鬆沉', '覺知提升', '念頭清楚', '重獲專注', '回到當下']
+  },
+
+  sigh: {
+    title: '生理嘆氣',
+    sub: '90 秒降焦慮',
+    category: 'reset',
+    customCycle: 'sigh',  // 特殊機制:雙吸一吐
+    fixedBreaths: 5,
+    fixedBreathsRange: { min: 3, max: 10, step: 1, default: 5 },
+    info: '吸氣分兩段:先短吸,再深吸到滿。然後緩慢長吐氣。<br><br>近年由神經科學界推廣,是已知最快降低焦慮的呼吸法之一。',
+    cues: { in: '吸', out: '吐' },
+    quote: '雙吸一吐,<br>讓身體記得放鬆。',
+    science: {
+      title: '為什麼雙吸一吐這麼有效?',
+      content: '雙吸的設計能完整撐開肺泡,讓累積的二氧化碳更有效排出。長吐氣啟動副交感神經,迷走神經張力提升。<br><br>動物與人類在壓力下會自發出現「嘆氣」反應,這是身體本能的自我調節機制。Stanford 神經科學實驗室的研究顯示,刻意執行幾次生理嘆氣,90 秒內就能顯著降低焦慮指數。',
+      ref: 'Stanford 神經科學研究、生理性嘆氣 (Physiological Sigh) 文獻'
+    },
+    feelingTags: ['雜念中斷', '感到安定', '呼吸變慢', '肩膀鬆沉', '焦慮減輕', '心慢下來', '釋懷', '輕盈']
+  },
+
+  box: {
+    title: '箱式呼吸',
+    sub: '抗壓專注,4-4-4-4',
+    category: 'reset',
+    customCycle: 'box',  // 特殊機制:四階段
+    boxSeconds: 4,        // 每段秒數
+    duration: 5,
+    info: '吸 4 秒、屏息 4 秒、吐 4 秒、屏息 4 秒,形成完整的「呼吸方塊」。<br><br>軍事與運動心理學領域常用的抗壓呼吸技術。',
+    cues: { in: '吸', hold1: '停', out: '吐', hold2: '停' },
+    quote: '一口氣,一個方塊,<br>把混亂裝進秩序裡。',
+    science: {
+      title: '為什麼軍隊用箱式呼吸?',
+      content: '四階段等比例的設計,讓大腦同時處理「呼吸節奏」與「時間感知」,佔據前額葉資源,使焦慮性思考難以產生。<br><br>停息階段提升 CO2 耐受度,讓自律神經系統練習在「不舒服」中保持冷靜。研究顯示能降低皮質醇與心率,提升決策品質。在高壓決策、面試前、開會中都能快速啟動冷靜模式。',
+      ref: '戰術呼吸法 (Tactical Breathing)、軍事與運動心理學文獻'
+    },
+    feelingTags: ['雜念中斷', '感到安定', '呼吸變慢', '肩膀鬆沉', '重獲專注', '念頭清楚', '冷靜', '掌控感']
+  },
+
+  // ============ 🟡 日常修習組 ============
+  baseline: {
+    title: '諧振呼吸',
+    sub: '調節自主神經系統',
+    category: 'daily',
+    bpm: 6,
+    duration: 5,
+    info: '研究顯示,每分鐘 6 次的呼吸頻率(0.1Hz),最能有效調節自主神經系統,提升心率變異性(HRV),讓身心進入諧振狀態。',
+    cues: { in: '吸', out: '吐' },
+    quote: '此刻,你正回到自己的節奏。<br>每一次呼吸都剛剛好。',
+    showRandomQuotes: true,
+    science: {
+      title: '為什麼是 6 BPM?',
+      content: '心率與呼吸有自然的耦合關係。在每分鐘約 6 次的呼吸頻率(0.1Hz)時,心率變異性(HRV)達到最大,這個現象稱為「呼吸性竇性心律不整共振」(Resonant Frequency)。<br><br>此時迷走神經張力提升,壓力反應系統穩定,大腦的預設模式網絡 (DMN) 與執行控制網絡達成平衡。臨床研究顯示,規律練習能改善焦慮、憂鬱、PTSD、慢性疼痛、高血壓等多種症狀。',
+      ref: '多重迷走神經理論 (Polyvagal Theory)、HRV Biofeedback 臨床研究'
+    },
+    feelingTags: ['雜念中斷', '感到安定', '呼吸變慢', '肩膀鬆沉', '內外平衡', '心率穩定', '清晰', '安頓']
+  },
+
+  count: {
+    title: '數息法',
+    sub: '放鬆又專注',
+    category: 'daily',
+    bpm: 6,
+    bpmRange: { min: 3, max: 7, step: 1, default: 6 },
+    duration: 3,
+    info: '吸氣時跟著呼吸,吐氣時心中默數 1 到 10,數完即為一回合。',
+    cues: { in: '吸', out: '吐' },
+    cueMode: 'count',
+    countMax: 10,
+    useRounds: true,
+    bpmTip: '建議從每分鐘 6 次開始練習',
+    quote: '念頭起伏是自然的,<br>數字幫你溫柔地回到呼吸。',
+    science: {
+      title: '為什麼要數呼吸?',
+      content: '數息是佛教止觀的基礎,也是現代正念訓練的入門技術。「數」這個動作給予注意力一個明確的錨點,當念頭飄走時,使用者會自然發現「咦,我數到幾了?」這就是覺察被喚醒的瞬間。<br><br>神經科學研究顯示,持續的數息訓練能增加前扣帶皮質與島葉的密度,提升注意力與情緒覺察能力。對需要長時間專注工作的人特別有幫助。',
+      ref: '佛教止觀傳統、Mindfulness Meditation 神經科學研究'
+    },
+    feelingTags: ['雜念中斷', '感到安定', '呼吸變慢', '肩膀鬆沉', '重獲專注', '念頭清楚', '覺知提升', '安住']
+  },
+
+  nadi: {
+    title: '鼻孔交替呼吸',
+    sub: '平衡左右,Nadi Shodhana',
+    category: 'daily',
+    customCycle: 'nadi',  // 特殊機制:左右交替
+    bpm: 5,
+    bpmRange: { min: 4, max: 6, step: 1, default: 5 },
+    duration: 5,
+    info: '一手大拇指壓右鼻 → 左鼻吸氣<br>無名指壓左鼻 → 右鼻吐氣<br>右鼻吸 → 換壓 → 左鼻吐<br><br>瑜伽傳統技術,平衡左右腦與自律神經。',
+    cues: { in: '吸', out: '吐' },
+    quote: '左右交替,內外平衡。<br>呼吸如水,流入流出。',
+    science: {
+      title: '為什麼交替鼻孔?',
+      content: '人體的「鼻週期」(nasal cycle)研究顯示,左右鼻孔通氣率每 90-120 分鐘自然交替,且與大腦半球活躍度相關。左鼻通氣時右腦較活躍,反之亦然。<br><br>主動的鼻孔交替呼吸 (Nadi Shodhana) 能在短時間內平衡兩側自律神經張力。瑜伽傳統認為這能調和象徵活躍與冷靜的兩股能量。臨床觀察顯示能降低靜息血壓、改善睡眠品質。',
+      ref: '瑜伽 Pranayama 傳統、Nasal Cycle 神經科學研究'
+    },
+    feelingTags: ['雜念中斷', '感到安定', '呼吸變慢', '肩膀鬆沉', '內外平衡', '左右調和', '清晰', '臨在感']
+  },
+
+  // ============ 🔴 能量提振組 ============
+  bhastrika: {
+    title: '風箱呼吸',
+    sub: '快速強烈,提神醒腦',
+    category: 'energy',
+    customCycle: 'bhastrika',  // 特殊機制:快速 + 組間休息
+    bpm: 60,                    // 每秒 1 次(快速)
+    bhastrikaRounds: 2,
+    bhastrikaRoundsRange: { min: 1, max: 3, step: 1, default: 2 },
+    bhastrikaPerRound: 25,      // 每組 25 次快呼吸
+    info: '每組 25 次快速強烈鼻呼吸,組間深呼吸 1 次。<br><br>瑜伽傳統 Bhastrika,能快速提神、增加 CO2 耐受度。',
+    cues: { in: '吸', out: '吐' },
+    needSafety: true,
+    safetyText: '快速呼吸法注意事項',
+    safetyList: [
+      '可能出現頭暈、手腳發麻,屬正常反應',
+      '建議坐姿,絕對不要站立或駕駛時練習',
+      '孕婦、高血壓、心臟疾病者請避免',
+      '若感到不適,立即停止並回到自然呼吸'
+    ],
+    quote: '能量喚醒身體,<br>呼吸點燃內在的火。',
+    science: {
+      title: '風箱呼吸的提神原理',
+      content: '快速強烈的呼吸會暫時增加血氧、降低 CO2,啟動交感神經系統。研究顯示能提升警覺度、專注力與情緒振奮感,效果類似一杯咖啡但更快、無副作用。<br><br>長期練習可訓練 CO2 耐受度,增加橫膈膜與肋間肌的力量。Bhastrika 在瑜伽傳統中被視為「點燃內在之火」的技術,適合早晨或下午精神不濟時使用。',
+      ref: 'Hatha Yoga Pranayama 傳統、整合呼吸醫學文獻'
+    },
+    feelingTags: ['雜念中斷', '感到安定', '精神振奮', '頭腦清晰', '能量提升', '清醒', '溫熱感', '通暢']
+  },
+
+  lion: {
+    title: '獅子吼',
+    sub: '釋放下顎,Lion\'s Breath',
+    category: 'energy',
+    customCycle: 'lion',  // 特殊機制:鼻吸 + 嘴吐+吐舌
+    fixedBreaths: 5,
+    fixedBreathsRange: { min: 3, max: 10, step: 1, default: 5 },
+    bpm: 6,
+    info: '鼻子深吸氣 → 張嘴大吐氣 + 吐舌 + 發 「Haaa」 聲。<br><br>釋放下顎、面部、喉嚨的緊繃。',
+    cues: { in: '鼻吸', out: 'Haaa' },
+    quote: '張嘴吐氣,<br>把卡住的能量大聲送走。',
+    science: {
+      title: '吐舌與發聲的奇妙作用',
+      content: '面部與下顎是人類儲存壓力的主要區域之一。獅子吼透過誇張的張嘴、吐舌、發聲,直接釋放這些慢性緊繃。<br><br>發出「Haaa」聲時聲帶振動會刺激迷走神經,啟動副交感反應。瑜伽 Simhasana 認為這能驅散喉輪的能量阻塞。對長時間咬牙、皺眉、聳肩的辦公族群,是難得的「上半身大解放」。',
+      ref: '瑜伽 Simhasana 傳統、迷走神經刺激相關研究'
+    },
+    feelingTags: ['雜念中斷', '感到安定', '能量提升', '釋放緊繃', '情緒釋放', '輕鬆', '通暢', '解開']
+  },
+
+  wimhof: {
+    title: '冰人呼吸法',
+    sub: '冷靜免疫,深度練習',
+    category: 'energy',
+    customCycle: 'wimhof',  // 特殊機制:30 次深呼吸 + 憋氣
+    wimhofRounds: 3,
+    wimhofRoundsRange: { min: 1, max: 4, step: 1, default: 3 },
+    wimhofPerRound: 30,
+    info: '一個循環:<br>① 30 次深快呼吸<br>② 完全吐氣後憋氣(盡量久)<br>③ 大吸一口憋氣 15 秒<br><br>共 3 輪。提升專注、抗壓、免疫力。',
+    cues: { in: '吸', out: '吐' },
+    needSafety: true,
+    safetyText: '冰人呼吸法 安全提醒',
+    safetyList: [
+      '絕對不要站立、開車、游泳時練習',
+      '建議坐姿或躺姿,周圍環境安全',
+      '可能出現頭暈、手腳發麻,屬正常',
+      '孕婦、心血管疾病、癲癇者禁忌',
+      '兒童不適合此練習'
+    ],
+    quote: '極致的呼吸,<br>帶你看見內在的力量。',
+    science: {
+      title: '冰人呼吸法的科學',
+      content: '結合過度換氣與憋氣訓練的呼吸技術,因「冰人」這位荷蘭極限耐寒運動員的推廣而為世人所知。研究顯示能主動啟動交感神經、提升腎上腺素、降低發炎反應。<br><br>2014 年荷蘭 Radboud 大學的人體實驗顯示,接受訓練的學員能在注射細菌內毒素後主動降低發炎反應,改寫了「自律神經完全不可被意識控制」的醫學共識。是少數有正式人體實驗支持的呼吸技術。',
+      ref: '2014 年荷蘭 Radboud 大學發炎反應實驗、過度換氣相關文獻'
+    },
+    feelingTags: ['雜念中斷', '感到安定', '精神振奮', '頭腦清晰', '能量提升', '深層放鬆', '通透', '突破']
+  },
+
+  // ============ 🟣 深度調節組 ============
+  rebirth: {
+    title: '重生呼吸',
+    sub: '激烈釋放與轉化',
+    category: 'deep',
+    bpm: 25,
+    bpm2: 4,
+    bpmRange: { min: 20, max: 30, step: 1, default: 25 },
+    bpm2Range: { min: 3, max: 5, step: 1, default: 4 },
+    twoPhaseBpm: true,
+    duration: 10,
+    info: '<strong style="color:#c97a4a;">第一階段 解凍釋放:</strong>快且重的呼吸,打破能量節,讓深層情緒流動。<br><br><strong style="color:var(--accent);">第二階段 寂靜擴展:</strong>呼吸自然轉慢,讓真實的光照透全身。',
+    cues: { in: '吸', out: '釋放' },
+    bpmTip: '第一階段建議 25 次／分(解凍)',
+    bpm2Tip: '第二階段建議 4 次／分(寂靜)',
+    twoPhase: true,
+    phase1Ratio: 0.5,
+    needSafety: true,
+    safetyText: '重生呼吸 安全提醒',
+    safetyList: [
+      '強烈建議躺姿練習,避免站立或駕駛',
+      '過程可能出現頭暈、手腳發麻或情緒釋放',
+      '請確認周圍環境安全,無人打擾',
+      '孕婦、心血管疾病、嚴重精神症狀者請避免'
+    ],
+    quote: '這就是對的時間、對的地點,<br>一切都剛剛好。',
+    guides: [
+      { title: '第一階段 · 解凍釋放', text: '快且重地呼吸<br>不理會內容,讓能量解凍' },
+      { title: '第二階段 · 寂靜擴展', text: '不費力地呼吸<br>感受光照透全身' }
+    ],
+    science: {
+      title: '重生呼吸的深層機制',
+      content: '重生呼吸是 Holotropic Breathwork(整合呼吸法)的變體。連續快速呼吸會帶來短暫的腦部血氧改變,讓平時壓抑的情緒、記憶、身體感受浮現出來。<br><br>第二階段的緩慢呼吸讓神經系統重新整合,類似 EMDR(眼動減敏)或 Somatic Experiencing(身體經驗創傷療法)的「釋放後沉澱」階段。屬於深度練習,需要時間與安全空間。',
+      ref: 'Holotropic Breathwork、身體經驗創傷療法 (SE) 文獻'
+    },
+    feelingTags: ['雜念中斷', '感到安定', '情緒釋放', '深度解凍', '釋懷', '深層放鬆', '通透', '蛻變']
+  },
+
+  tonglen: {
+    title: '慈心呼吸',
+    sub: '吸入痛苦,吐出愛',
+    category: 'deep',
+    customCycle: 'tonglen',  // 特殊機制:四階段對象
+    bpm: 5,
+    duration: 10,
+    info: '吸入痛苦(自己/他人),吐出愛與光。<br><br>練習對象依序為:<br>① 自己 → ② 親愛的人 → ③ 困難的人 → ④ 所有眾生',
+    cues: { in: '吸入痛苦', out: '吐出愛' },
+    quote: '願我平安,願你平安,<br>願一切眾生平安。',
+    guides: [
+      { title: '送給自己', text: '吸入自己的痛苦<br>吐出對自己的愛' },
+      { title: '送給親愛的人', text: '吸入他們的痛苦<br>吐出對他們的愛' },
+      { title: '送給困難的人', text: '吸入難相處的人的痛苦<br>吐出對他們的愛' },
+      { title: '送給所有眾生', text: '吸入世界的痛苦<br>吐出無條件的愛' }
+    ],
+    science: {
+      title: '慈心呼吸的腦科學',
+      content: '藏傳佛教的 Tonglen(施受法)結合呼吸與利他冥想。研究顯示能活化內側前額葉、後扣帶迴與島葉(同理心相關腦區),長期練習能提升慈悲感與情緒調節能力。<br><br>有趣的是,「吸入痛苦」並不會增加負面情緒,反而能降低自身焦慮。神經科學家認為這是「主動接納」與「迴避」的根本差異 — 願意承接的人,反而被解放。',
+      ref: '藏傳佛教 Tonglen 傳統、慈心冥想 (Loving-Kindness Meditation) 神經影像研究'
+    },
+    feelingTags: ['感到安定', '與整體連結', '慈悲升起', '自我接納', '釋懷', '溫暖', '柔軟', '臨在感']
+  },
+
+  // ============ 💤 助眠放鬆組 ============
+  sleep478: {
+    title: '4-7-8 呼吸',
+    sub: '助眠經典',
+    category: 'sleep',
+    customCycle: '478',  // 特殊機制:三階段(吸-停-吐)
+    fixedBreaths: 8,
+    fixedBreathsRange: { min: 4, max: 12, step: 1, default: 8 },
+    info: '吸氣 4 秒 → 屏息 7 秒 → 吐氣 8 秒。<br><br>整合醫學界推廣的助眠技術,被形容為身體自然的鎮靜開關,睡前 4 個循環左右即可有效助眠。',
+    cues: { in: '吸', hold: '停', out: '吐' },
+    quote: '長吐氣是最溫柔的搖籃。<br>讓身體自己睡著。',
+    science: {
+      title: '為什麼 4-7-8 能助眠?',
+      content: '吐氣時間是吸氣的兩倍長,強烈啟動副交感神經。屏息階段讓 CO2 略升,降低心率,模擬睡眠時的生理狀態。<br><br>這套呼吸節奏由整合醫學領域推廣,被形容為「身體自然的鎮靜開關」。長期練習能改善失眠、降低靜息心率。短期使用時,通常 4 個循環左右就能感受到睡意,不需依賴安眠藥。',
+      ref: '整合醫學 (Integrative Medicine) 文獻、副交感神經啟動相關研究'
+    },
+    feelingTags: ['呼吸變慢', '肩膀鬆沉', '感到安定', '想睡了', '身體鬆軟', '心慢下來', '安頓', '放下']
+  },
+
+  scan: {
+    title: '身體掃描',
+    sub: '深度放鬆,從頭到腳',
+    category: 'sleep',
+    bpm: 5,
+    duration: 10,
+    info: '由頭到腳,溫柔地把覺察帶到身體每個部位。<br>單純領受,不評價。',
+    cues: { in: '吸', out: '吐' },
+    quote: '單純領受身體的感受,<br>麻、刺、熱、緊都是覺察。',
+    bodyParts: [
+      { name: '頭頂', desc: '感受頭頂的存在感' },
+      { name: '臉部', desc: '放鬆額頭、眉毛、下巴' },
+      { name: '肩膀', desc: '讓肩膀沉下來' },
+      { name: '胸口', desc: '覺察心跳與呼吸' },
+      { name: '腹部', desc: '感受腹部的起伏' },
+      { name: '臀部與大腿', desc: '感受與椅子或床的接觸' },
+      { name: '小腿與腳掌', desc: '感受腳踏實地' },
+      { name: '腳趾', desc: '從腳趾尖再次掃過全身' }
+    ],
+    science: {
+      title: '身體掃描的療癒機制',
+      content: '正念減壓 (MBSR) 的核心練習之一。將注意力依序送到身體各部位,能增加島葉皮質的活化,提升「內感受」(interoception) — 即覺察自己內在身體狀態的能力。<br><br>研究顯示能有效降低慢性疼痛、失眠、焦慮、憂鬱症狀。許多人不需安眠藥,睡前做一次身體掃描就能入睡。也是 8 週正念減壓課程中,最容易產生顯著轉變的一個練習。',
+      ref: 'Mindfulness-Based Stress Reduction (MBSR)、內感受 (Interoception) 神經科學'
+    },
+    feelingTags: ['呼吸變慢', '肩膀鬆沉', '感到安定', '想睡了', '身體鬆軟', '心慢下來', '深層放鬆', '臨在感']
+  },
+
+  exhale: {
+    title: '延長吐氣',
+    sub: '快速冷靜,4-8',
+    category: 'sleep',
+    customCycle: 'exhale',  // 特殊機制:吸 4 吐 8
+    bpm: 5,                  // 計算用,實際週期是 12 秒(4+8)
+    duration: 5,
+    info: '吸氣 4 秒,吐氣 8 秒。吐氣是吸氣的兩倍長。<br><br>最簡單但最有效的副交感神經啟動法。',
+    cues: { in: '吸', out: '吐' },
+    quote: '長吐氣,<br>是身體最快的解壓鍵。',
+    science: {
+      title: '為什麼吐氣比吸氣重要?',
+      content: '吸氣時心率略升(交感神經啟動),吐氣時心率略降(副交感神經啟動)。當吐氣時間延長到吸氣的兩倍,副交感神經主導,迷走神經張力提升,心率變慢、血壓下降。<br><br>這是所有放鬆技術的共同原理:延長吐氣比深吸氣更能讓身體放鬆。會議前緊張、上台前焦慮、午休想快速放鬆都很適合,30 秒內就能感受變化。',
+      ref: '迷走神經與呼吸耦合研究、多重迷走神經理論 (Polyvagal Theory)'
+    },
+    feelingTags: ['呼吸變慢', '肩膀鬆沉', '感到安定', '想睡了', '心慢下來', '冷靜', '放下', '輕盈']
+  }
+};
+
+// ===== 狀態 =====
+const state = {
+  mode: 'baseline',
+  bpm: 6,
+  duration: 5,
+  running: false,
+  startTime: 0,
+  endTime: 0,
+  rafId: null,
+  audioCtx: null,
+  noiseGain: null,
+  noiseFilter: null,
+  lastPhase: null,
+  lastBreathCount: -1,
+  lastQuoteSwitch: 0,
+  currentQuote: null
+};
+
+// ===== 螢幕切換 =====
+function showScreen(id) {
+  document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+  document.getElementById(id).classList.add('active');
+
+  // 個人入口按鈕只在首頁顯示
+  const profileEntry = document.getElementById('profile-entry');
+  if (profileEntry) {
+    profileEntry.style.display = (id === 'screen-home') ? 'flex' : 'none';
+  }
+}
+
+function goToHome() {
+  stopBreathing();
+  document.getElementById('breath-bg').classList.remove('inhale', 'exhale');
+  document.getElementById('breath-glow').classList.remove('active');
+  showScreen('screen-home');
+}
+
+// ===== 分類摺疊 =====
+function toggleCategory(catKey) {
+  const block = document.querySelector(`.category-block[data-category="${catKey}"]`);
+  if (!block) return;
+  // 收起其他分類(手風琴效果),只展開當前
+  document.querySelectorAll('.category-block').forEach(b => {
+    if (b !== block) b.classList.remove('expanded');
+  });
+  block.classList.toggle('expanded');
+}
+
+// ===== 模式選擇 =====
+function selectMode(mode) {
+  state.mode = mode;
+  const m = MODES[mode];
+  state.bpm = m.bpm;
+  state.duration = m.duration || 5;
+  if (m.bpm2) state.bpm2 = m.bpm2;
+
+  document.getElementById('set-title').textContent = m.title;
+  document.getElementById('set-sub').textContent = m.sub;
+  document.getElementById('set-info').innerHTML = m.info;
+
+  // === BPM 滑桿 ===
+  const bpmRow = document.getElementById('bpm-row');
+  if (m.bpmRange) {
+    bpmRow.style.display = '';
+    const slider = document.getElementById('bpm-slider');
+    slider.min = m.bpmRange.min;
+    slider.max = m.bpmRange.max;
+    slider.step = m.bpmRange.step;
+    slider.value = m.bpmRange.default;
+    state.bpm = m.bpmRange.default;
+    document.getElementById('bpm-val').textContent = state.bpm;
+    document.getElementById('bpm-label').textContent = m.twoPhaseBpm ? '第一階段頻率' : '呼吸頻率';
+
+    const tipEl = document.getElementById('bpm-tip');
+    if (m.bpmTip) {
+      tipEl.textContent = m.bpmTip;
+      tipEl.style.display = '';
+    } else {
+      tipEl.style.display = 'none';
+    }
+  } else {
+    bpmRow.style.display = 'none';
+  }
+
+  // === 第二階段 BPM(僅重生呼吸) ===
+  const bpm2Row = document.getElementById('bpm2-row');
+  if (m.twoPhaseBpm && m.bpm2Range) {
+    bpm2Row.style.display = '';
+    const slider2 = document.getElementById('bpm2-slider');
+    slider2.min = m.bpm2Range.min;
+    slider2.max = m.bpm2Range.max;
+    slider2.step = m.bpm2Range.step;
+    slider2.value = m.bpm2Range.default;
+    state.bpm2 = m.bpm2Range.default;
+    document.getElementById('bpm2-val').textContent = state.bpm2;
+    const tip2El = document.getElementById('bpm2-tip');
+    if (m.bpm2Tip) {
+      tip2El.textContent = m.bpm2Tip;
+      tip2El.style.display = '';
+    } else {
+      tip2El.style.display = 'none';
+    }
+  } else {
+    bpm2Row.style.display = 'none';
+  }
+
+  // === 時長 / 回合數 / 固定口數 / 風箱組數 / 冰人輪數 ===
+  const durRow = document.getElementById('dur-row');
+  const durSlider = document.getElementById('dur-slider');
+  const durLabel = document.getElementById('dur-label');
+  const durUnit = document.getElementById('dur-unit');
+
+  if (m.fixedBreathsRange) {
+    // 三口呼吸/嘆氣/獅子吼/4-7-8:可調次數
+    durRow.style.display = '';
+    durSlider.min = m.fixedBreathsRange.min;
+    durSlider.max = m.fixedBreathsRange.max;
+    durSlider.step = m.fixedBreathsRange.step;
+    durSlider.value = m.fixedBreathsRange.default;
+    state.duration = m.fixedBreathsRange.default;
+    m.fixedBreaths = m.fixedBreathsRange.default;
+    durLabel.textContent = '練習次數';
+    durUnit.innerHTML = '<span class="setting-value">' + state.duration + '</span> 次';
+  } else if (m.bhastrikaRoundsRange) {
+    // 風箱組數
+    durRow.style.display = '';
+    durSlider.min = m.bhastrikaRoundsRange.min;
+    durSlider.max = m.bhastrikaRoundsRange.max;
+    durSlider.step = m.bhastrikaRoundsRange.step;
+    durSlider.value = m.bhastrikaRoundsRange.default;
+    state.duration = m.bhastrikaRoundsRange.default;
+    m.bhastrikaRounds = m.bhastrikaRoundsRange.default;
+    durLabel.textContent = '練習組數';
+    durUnit.innerHTML = '<span class="setting-value">' + state.duration + '</span> 組';
+  } else if (m.wimhofRoundsRange) {
+    // 冰人呼吸法 輪數
+    durRow.style.display = '';
+    durSlider.min = m.wimhofRoundsRange.min;
+    durSlider.max = m.wimhofRoundsRange.max;
+    durSlider.step = m.wimhofRoundsRange.step;
+    durSlider.value = m.wimhofRoundsRange.default;
+    state.duration = m.wimhofRoundsRange.default;
+    m.wimhofRounds = m.wimhofRoundsRange.default;
+    durLabel.textContent = '練習輪數';
+    durUnit.innerHTML = '<span class="setting-value">' + state.duration + '</span> 輪';
+  } else if (m.fixedBreaths || m.infoOnly) {
+    // 固定不可調(三口呼吸)
+    durRow.style.display = 'none';
+  } else {
+    durRow.style.display = '';
+    if (m.useRounds) {
+      durSlider.min = 1;
+      durSlider.max = 20;
+      durSlider.step = 1;
+      durSlider.value = m.duration;
+      durLabel.textContent = '練習回合';
+      updateRoundsDisplay();
+    } else {
+      durSlider.min = 1;
+      durSlider.max = 15;
+      durSlider.step = 1;
+      durSlider.value = m.duration;
+      durLabel.textContent = '練習時長';
+      durUnit.innerHTML = '<span class="setting-value">' + state.duration + '</span> 分鐘';
+    }
+  }
+
+  // === 安全核取頁(若有需要) ===
+  if (m.needSafety) {
+    // 動態載入該模式的安全提示
+    if (m.safetyText) {
+      document.getElementById('safety-title-text').textContent = m.safetyText;
+    }
+    if (m.safetyList) {
+      const listEl = document.getElementById('safety-list');
+      listEl.innerHTML = m.safetyList.map(item =>
+        `<li style="padding:8px 0; font-size:13px; line-height:1.7; color:var(--ink); display:flex; gap:10px;"><span style="color:#c97a4a;">·</span>${item}</li>`
+      ).join('');
+    }
+    document.getElementById('safety-confirm').checked = false;
+    document.getElementById('safety-start-btn').disabled = true;
+    showScreen('screen-safety');
+    return;
+  }
+
+  showScreen('screen-settings');
+}
+
+function toggleSafetyConfirm() {
+  const checked = document.getElementById('safety-confirm').checked;
+  document.getElementById('safety-start-btn').disabled = !checked;
+}
+
+function proceedToSettings() {
+  showScreen('screen-settings');
+}
+
+function updateRoundsDisplay() {
+  const minutes = (state.duration * 10 / state.bpm).toFixed(1);
+  document.getElementById('dur-unit').innerHTML =
+    '<span class="setting-value">' + state.duration + '</span> 回合 ' +
+    '<span style="color:var(--ink-light);font-size:11px;">≈ ' + minutes + ' 分</span>';
+}
+
+// 滑桿事件
+document.getElementById('bpm-slider').addEventListener('input', e => {
+  state.bpm = parseFloat(e.target.value);
+  document.getElementById('bpm-val').textContent = state.bpm;
+  const m = MODES[state.mode];
+  if (m && m.useRounds) updateRoundsDisplay();
+});
+document.getElementById('bpm2-slider').addEventListener('input', e => {
+  state.bpm2 = parseFloat(e.target.value);
+  document.getElementById('bpm2-val').textContent = state.bpm2;
+});
+document.getElementById('dur-slider').addEventListener('input', e => {
+  state.duration = parseInt(e.target.value);
+  const m = MODES[state.mode];
+  if (!m) return;
+  const durUnit = document.getElementById('dur-unit');
+
+  if (m.fixedBreathsRange) {
+    m.fixedBreaths = state.duration;
+    durUnit.innerHTML = '<span class="setting-value">' + state.duration + '</span> 次';
+  } else if (m.bhastrikaRoundsRange) {
+    m.bhastrikaRounds = state.duration;
+    durUnit.innerHTML = '<span class="setting-value">' + state.duration + '</span> 組';
+  } else if (m.wimhofRoundsRange) {
+    m.wimhofRounds = state.duration;
+    durUnit.innerHTML = '<span class="setting-value">' + state.duration + '</span> 輪';
+  } else if (m.useRounds) {
+    updateRoundsDisplay();
+  } else {
+    durUnit.innerHTML = '<span class="setting-value">' + state.duration + '</span> 分鐘';
+  }
+});
+
+// ===== 倒數預備 =====
+function beginCountdown() {
+  if (!state.audioCtx) initAudio();
+
+  showScreen('screen-countdown');
+  const numEl = document.getElementById('countdown-number');
+  let n = 3;
+  numEl.textContent = n;
+  playCountdownBeep(n);
+
+  const tick = () => {
+    n--;
+    if (n > 0) {
+      numEl.style.opacity = '0';
+      numEl.style.transform = 'scale(0.85)';
+      setTimeout(() => {
+        numEl.textContent = n;
+        numEl.style.opacity = '1';
+        numEl.style.transform = 'scale(1)';
+        playCountdownBeep(n);
+      }, 200);
+      setTimeout(tick, 1000);
+    } else {
+      setTimeout(() => startBreathing(), 800);
+    }
+  };
+  setTimeout(tick, 1000);
+}
+
+// ===== 開始呼吸練習 =====
+// ===== 多階段呼吸引擎 helper =====
+// 為每個 customCycle 模式建立階段陣列(秒)
+function getPhases(m) {
+  if (m.customCycle === 'box') {
+    const s = m.boxSeconds || 4;
+    return [
+      { name: 'inhale', sec: s, label: '吸' },
+      { name: 'hold1',  sec: s, label: '停' },
+      { name: 'exhale', sec: s, label: '吐' },
+      { name: 'hold2',  sec: s, label: '停' }
+    ];
+  }
+  if (m.customCycle === '478') {
+    return [
+      { name: 'inhale', sec: 4, label: '吸' },
+      { name: 'hold',   sec: 7, label: '停' },
+      { name: 'exhale', sec: 8, label: '吐' }
+    ];
+  }
+  if (m.customCycle === 'exhale') {
+    return [
+      { name: 'inhale', sec: 4, label: '吸' },
+      { name: 'exhale', sec: 8, label: '吐' }
+    ];
+  }
+  if (m.customCycle === 'sigh') {
+    return [
+      { name: 'inhale',  sec: 1.5, label: '吸' },
+      { name: 'inhale2', sec: 1.5, label: '再吸' },
+      { name: 'exhale',  sec: 5,   label: '長吐' }
+    ];
+  }
+  if (m.customCycle === 'lion') {
+    return [
+      { name: 'inhale', sec: 4, label: '鼻吸' },
+      { name: 'exhale', sec: 6, label: 'Haaa' }
+    ];
+  }
+  if (m.customCycle === 'nadi') {
+    // 一個完整循環需要兩次呼吸,我們把它當成兩階段顯示
+    const cs = 60 / (m.bpm || 5);  // 一次呼吸的秒數
+    return [
+      { name: 'inhale-l', sec: cs / 2, label: '左吸',  side: 'left' },
+      { name: 'exhale-r', sec: cs / 2, label: '右吐',  side: 'right' },
+      { name: 'inhale-r', sec: cs / 2, label: '右吸',  side: 'right' },
+      { name: 'exhale-l', sec: cs / 2, label: '左吐',  side: 'left' }
+    ];
+  }
+  if (m.customCycle === 'tonglen') {
+    const cs = 60 / (m.bpm || 5);
+    return [
+      { name: 'inhale', sec: cs / 2, label: '吸入痛苦' },
+      { name: 'exhale', sec: cs / 2, label: '吐出愛' }
+    ];
+  }
+  // 預設一般 sin 呼吸:返回 null 走原本邏輯
+  return null;
+}
+
+// 找出當前在哪個階段
+function getCurrentPhase(phases, elapsedInCycle) {
+  let acc = 0;
+  for (let i = 0; i < phases.length; i++) {
+    acc += phases[i].sec;
+    if (elapsedInCycle < acc) {
+      const phaseStart = acc - phases[i].sec;
+      const phaseT = (elapsedInCycle - phaseStart) / phases[i].sec;  // 0~1
+      return { phase: phases[i], idx: i, t: phaseT, phaseStart, phaseDuration: phases[i].sec };
+    }
+  }
+  // 最後一階段
+  const last = phases[phases.length - 1];
+  return { phase: last, idx: phases.length - 1, t: 1, phaseStart: acc - last.sec, phaseDuration: last.sec };
+}
+
+// 計算總週期長(秒)
+function getTotalCycleSec(phases) {
+  return phases.reduce((s, p) => s + p.sec, 0);
+}
+
+function startBreathing() {
+  showScreen('screen-breathe');
+  const m = MODES[state.mode];
+  document.getElementById('bm-name').textContent = m.title;
+
+  document.getElementById('breath-glow').classList.add('active');
+
+  // 清空上一次練習殘留的引導文字
+  const guideEl = document.getElementById('guide-area');
+  const guideText = document.getElementById('guide-text');
+  guideEl.classList.remove('visible');
+  guideText.innerHTML = '';
+
+  state.running = true;
+  state.startTime = performance.now();
+  state.currentBpm = state.bpm;
+  state.inPhase2 = false;
+  state.lastPhase = null;
+  state.lastPhaseIdx = -1;          // 多階段呼吸的階段索引
+  state.lastBreathCount = -1;
+  state.lastQuoteSwitch = 0;
+  state.lastBodyPart = -1;
+  state.currentQuote = null;
+
+  // 計算總時長
+  let durMs;
+  const phases = getPhases(m);
+  if (phases) {
+    // 自訂多階段
+    const cycleSec = getTotalCycleSec(phases);
+    if (m.fixedBreaths) {
+      durMs = m.fixedBreaths * cycleSec * 1000;
+    } else if (m.bhastrikaPerRound) {
+      // 風箱:每組 N 次 + 組間休息
+      durMs = (m.bhastrikaRounds || 2) * (m.bhastrikaPerRound * (60 / m.bpm) + 5) * 1000;
+    } else {
+      durMs = state.duration * 60 * 1000;
+    }
+  } else if (m.customCycle === 'bhastrika') {
+    // 風箱呼吸特殊計算(每組 25 次 + 組間休息 5 秒)
+    const breathSec = 60 / state.bpm;  // 每次呼吸 1 秒
+    const roundSec = m.bhastrikaPerRound * breathSec + 5;
+    durMs = (m.bhastrikaRounds || 2) * roundSec * 1000;
+  } else if (m.customCycle === 'wimhof') {
+    // 冰人呼吸法:每輪 30 次深呼吸(約 60 秒) + 憋氣(60 秒) + 大吸 15 秒
+    const roundSec = m.wimhofPerRound * 2 + 60 + 15;
+    durMs = (m.wimhofRounds || 3) * roundSec * 1000;
+  } else if (m.fixedBreaths) {
+    const cycleMs = (60 / state.bpm) * 1000;
+    durMs = m.fixedBreaths * cycleMs;
+  } else if (m.useRounds) {
+    const cycleMs = (60 / state.bpm) * 1000;
+    durMs = state.duration * m.countMax * cycleMs;
+  } else {
+    durMs = state.duration * 60 * 1000;
+  }
+  state.endTime = state.startTime + durMs;
+
+  // 諧振呼吸:預設啟動隨機輪播金句模式
+  if (state.mode === 'baseline') {
+    showRandomQuote();
+  }
+
+  // 慈心呼吸:顯示第一個對象
+  if (state.mode === 'tonglen' && m.guides) {
+    showGuide(m.guides[0]);
+  }
+
+  loop();
+}
+
+// 金句若有「，」「,」「。」「.」「:」「：」就在第一個處斷行為兩行
+function formatQuoteForTwoLines(text) {
+  // 找第一個標點符號(中文逗號、句號、冒號、英文逗號、句號、冒號)
+  const match = text.match(/^([^，,。．：:]+[，,。．：:])(.+)$/);
+  if (match) {
+    return match[1] + '<br>' + match[2];
+  }
+  return text;
+}
+
+function showRandomQuote() {
+  const q = randomQuote();
+  state.currentQuote = q;
+  const guideEl = document.getElementById('guide-area');
+  const textEl = document.getElementById('guide-text');
+  textEl.innerHTML = formatQuoteForTwoLines(q.text);
+  guideEl.classList.add('visible');
+}
+
+function showGuide(g) {
+  const el = document.getElementById('guide-area');
+  const textEl = document.getElementById('guide-text');
+  el.classList.remove('visible');
+  setTimeout(() => {
+    textEl.innerHTML = `<strong>${g.title}</strong>${g.text}`;
+    el.classList.add('visible');
+  }, 500);
+}
+
+// ===== 主循環 =====
+function loop() {
+  if (!state.running) return;
+
+  const now = performance.now();
+  const elapsed = now - state.startTime;
+  const totalMs = state.endTime - state.startTime;
+  const remaining = Math.max(0, state.endTime - now);
+  const progress = elapsed / totalMs;
+  const m = MODES[state.mode];
+
+  if (remaining <= 0) {
+    endSession();
+    return;
+  }
+
+  // === 多階段呼吸引擎(箱式 / 478 / 嘆氣 / 延長吐氣 / 鼻孔交替 / 慈心) ===
+  const phases = getPhases(m);
+  if (phases) {
+    runMultiPhase(m, elapsed, remaining, phases);
+    state.rafId = requestAnimationFrame(loop);
+    return;
+  }
+
+  // === 風箱呼吸特殊處理 ===
+  if (m.customCycle === 'bhastrika') {
+    runBhastrika(m, elapsed, remaining);
+    state.rafId = requestAnimationFrame(loop);
+    return;
+  }
+
+  // === 冰人呼吸法 特殊處理 ===
+  if (m.customCycle === 'wimhof') {
+    runWimHof(m, elapsed, remaining);
+    state.rafId = requestAnimationFrame(loop);
+    return;
+  }
+
+  // === 重生呼吸:兩階段切換 ===
+  if (m.twoPhase && !state.inPhase2 && progress >= m.phase1Ratio) {
+    state.inPhase2 = true;
+    state.currentBpm = state.bpm2 || (m.bpm2Range ? m.bpm2Range.default : 4);
+    if (m.guides && m.guides[1]) {
+      showGuide(m.guides[1]);
+    }
+    playPhaseTransition();
+  }
+
+  const cycleMs = (60 / state.currentBpm) * 1000;
+  const breathCount = Math.floor(elapsed / cycleMs);
+  const t = (elapsed % cycleMs) / cycleMs;
+
+  // === 三口呼吸:做完三口完整週期就結束 ===
+  if (m.fixedBreaths && breathCount >= m.fixedBreaths) {
+    endSession();
+    return;
+  }
+
+  // 計時器顯示
+  if (m.fixedBreaths) {
+    const currentBreath = Math.min(m.fixedBreaths, breathCount + 1);
+    document.getElementById('timer').textContent = `第 ${currentBreath} 口 / ${m.fixedBreaths}`;
+  } else {
+    const sec = Math.ceil(remaining / 1000);
+    const mm = String(Math.floor(sec / 60)).padStart(2, '0');
+    const ss = String(sec % 60).padStart(2, '0');
+    document.getElementById('timer').textContent = `${mm}:${ss}`;
+  }
+
+  // 正弦波: 0~0.5 吸氣, 0.5~1 吐氣
+  const isInhale = t < 0.5;
+  const phase = isInhale ? 'inhale' : 'exhale';
+  const sineVal = Math.sin(t * Math.PI);
+
+  // 色塊呼吸
+  const bg = document.getElementById('breath-bg');
+  if (isInhale) {
+    bg.classList.add('inhale');
+    bg.classList.remove('exhale');
+  } else {
+    bg.classList.add('exhale');
+    bg.classList.remove('inhale');
+  }
+
+  // 呼吸光暈縮放
+  const glowScale = 0.7 + sineVal * 0.5;
+  document.getElementById('breath-glow').style.transform =
+    `translate(-50%, -50%) scale(${glowScale})`;
+
+  // 進度條
+  const progressEl = document.getElementById('progress');
+  const halfCycleMs = cycleMs / 2;
+  const phaseElapsed = isInhale ? (t * cycleMs) : ((t - 0.5) * cycleMs);
+  const phaseProgress = (phaseElapsed / halfCycleMs) * 100;
+  progressEl.style.width = phaseProgress + '%';
+  progressEl.classList.toggle('warm', !isInhale);
+
+  // 三口呼吸:顯示對應引導
+  if (m.guides && state.mode === 'three') {
+    if (breathCount !== state.lastBreathCount && breathCount < m.fixedBreaths) {
+      showGuide(m.guides[breathCount]);
+      if (breathCount > 0) playPhaseTransition();
+      state.lastBreathCount = breathCount;
+    }
+  }
+
+  // 身體掃描:依時間平均輪播部位
+  if (m.bodyParts) {
+    const partIdx = Math.min(
+      m.bodyParts.length - 1,
+      Math.floor(progress * m.bodyParts.length)
+    );
+    if (partIdx !== state.lastBodyPart) {
+      showGuide({
+        title: m.bodyParts[partIdx].name,
+        text: m.bodyParts[partIdx].desc
+      });
+      if (state.lastBodyPart >= 0) playPhaseTransition();
+      state.lastBodyPart = partIdx;
+    }
+  }
+
+  // 諧振呼吸:每 3 個呼吸週期換一句金句
+  if (state.mode === 'baseline' && breathCount > 0 && breathCount % 3 === 0
+      && breathCount !== state.lastQuoteSwitch) {
+    showRandomQuote();
+    state.lastQuoteSwitch = breathCount;
+  }
+
+  // 階段切換
+  if (phase !== state.lastPhase) {
+    state.lastPhase = phase;
+
+    const cueEl = document.getElementById('cue');
+    if (m.cueMode === 'count') {
+      if (!isInhale) {
+        const num = (breathCount % m.countMax) + 1;
+        cueEl.textContent = num;
+      } else {
+        cueEl.textContent = '吸';
+      }
+    } else {
+      cueEl.textContent = isInhale ? m.cues.in : m.cues.out;
+    }
+
+    // 微縮放動畫
+    cueEl.style.transform = 'scale(0.92)';
+    setTimeout(() => cueEl.style.transform = 'scale(1)', 100);
+
+    playChime(isInhale);
+
+    // 階段文字
+    let phaseText = isInhale ? '吸 氣' : '吐 氣';
+    if (m.cues.out === '釋放' && !isInhale) phaseText = '釋 放';
+    document.getElementById('phase').textContent = phaseText;
+  }
+
+  state.rafId = requestAnimationFrame(loop);
+}
+
+// === 多階段呼吸 runner ===
+function runMultiPhase(m, elapsed, remaining, phases) {
+  const cycleSec = getTotalCycleSec(phases);
+  const cycleMs = cycleSec * 1000;
+  const breathCount = Math.floor(elapsed / cycleMs);
+  const elapsedInCycle = (elapsed % cycleMs) / 1000;  // 秒
+
+  // 固定次數結束
+  if (m.fixedBreaths && breathCount >= m.fixedBreaths) {
+    endSession();
+    return;
+  }
+
+  // 計時器
+  if (m.fixedBreaths) {
+    const currentBreath = Math.min(m.fixedBreaths, breathCount + 1);
+    document.getElementById('timer').textContent = `第 ${currentBreath} 口 / ${m.fixedBreaths}`;
+  } else {
+    const sec = Math.ceil(remaining / 1000);
+    const mm = String(Math.floor(sec / 60)).padStart(2, '0');
+    const ss = String(sec % 60).padStart(2, '0');
+    document.getElementById('timer').textContent = `${mm}:${ss}`;
+  }
+
+  const cur = getCurrentPhase(phases, elapsedInCycle);
+  const phaseName = cur.phase.name;
+  const isInhale = phaseName.startsWith('inhale');
+  const isExhale = phaseName.startsWith('exhale');
+  const isHold = phaseName.startsWith('hold');
+
+  // 色塊呼吸:吸氣冷、吐氣暖、屏息中性
+  const bg = document.getElementById('breath-bg');
+  bg.classList.remove('inhale', 'exhale');
+  if (isInhale) bg.classList.add('inhale');
+  else if (isExhale) bg.classList.add('exhale');
+
+  // 呼吸光暈:吸氣縮放上升、吐氣縮放下降、屏息保持
+  const glowEl = document.getElementById('breath-glow');
+  let glowScale;
+  if (isInhale) {
+    glowScale = 0.7 + cur.t * 0.5;  // 0.7 → 1.2
+  } else if (isExhale) {
+    glowScale = 1.2 - cur.t * 0.5;  // 1.2 → 0.7
+  } else {
+    // 屏息:保持當前(看前一階段是吸還吐)
+    const prevPhase = cur.idx > 0 ? phases[cur.idx - 1] : phases[phases.length - 1];
+    glowScale = prevPhase.name.startsWith('inhale') ? 1.2 : 0.7;
+  }
+  glowEl.style.transform = `translate(-50%, -50%) scale(${glowScale})`;
+
+  // 進度條:當前階段進度
+  const progressEl = document.getElementById('progress');
+  progressEl.style.width = (cur.t * 100) + '%';
+  progressEl.classList.toggle('warm', isExhale);
+
+  // 慈心呼吸:依時間切換對象
+  if (state.mode === 'tonglen' && m.guides) {
+    const totalMs = state.endTime - state.startTime;
+    const partIdx = Math.min(
+      m.guides.length - 1,
+      Math.floor((elapsed / totalMs) * m.guides.length)
+    );
+    if (partIdx !== state.lastBodyPart) {
+      showGuide(m.guides[partIdx]);
+      if (state.lastBodyPart >= 0) playPhaseTransition();
+      state.lastBodyPart = partIdx;
+    }
+  }
+
+  // 階段切換
+  if (cur.idx !== state.lastPhaseIdx) {
+    state.lastPhaseIdx = cur.idx;
+
+    const cueEl = document.getElementById('cue');
+    cueEl.textContent = cur.phase.label;
+    cueEl.style.transform = 'scale(0.92)';
+    setTimeout(() => cueEl.style.transform = 'scale(1)', 100);
+
+    playChime(isInhale || isHold && cur.idx === 0);
+
+    // 階段文字
+    let phaseText = '吸 氣';
+    if (isExhale) phaseText = '吐 氣';
+    else if (isHold) phaseText = '屏 息';
+    if (cur.phase.label === '長吐') phaseText = '長 吐';
+    if (cur.phase.label === 'Haaa') phaseText = '張 嘴 吐';
+    if (cur.phase.label === '再吸') phaseText = '再 吸';
+    if (cur.phase.label === '吸入痛苦') phaseText = '吸 入';
+    if (cur.phase.label === '吐出愛') phaseText = '吐 出';
+    document.getElementById('phase').textContent = phaseText;
+  }
+}
+
+// === 風箱呼吸 runner(每組 25 次快呼吸 + 組間休息 5 秒) ===
+function runBhastrika(m, elapsed, remaining) {
+  const breathSec = 60 / state.bpm;  // 每次呼吸 1 秒
+  const roundSec = m.bhastrikaPerRound * breathSec + 5;  // 一組總時長(秒)
+  const elapsedSec = elapsed / 1000;
+  const roundIdx = Math.floor(elapsedSec / roundSec);
+  const inRoundSec = elapsedSec % roundSec;
+  const totalRounds = m.bhastrikaRounds || 2;
+
+  // 計時器:顯示「第 N 組 / 共 X 組」
+  document.getElementById('timer').textContent =
+    `第 ${Math.min(totalRounds, roundIdx + 1)} 組 / ${totalRounds}`;
+
+  // 階段判斷
+  const isResting = inRoundSec >= m.bhastrikaPerRound * breathSec;
+  const cueEl = document.getElementById('cue');
+  const phaseEl = document.getElementById('phase');
+  const bg = document.getElementById('breath-bg');
+  const glowEl = document.getElementById('breath-glow');
+
+  if (isResting) {
+    // 休息階段:深呼吸
+    cueEl.textContent = '深 呼 吸';
+    phaseEl.textContent = '組 間 休 息';
+    bg.classList.remove('inhale', 'exhale');
+    glowEl.style.transform = 'translate(-50%, -50%) scale(1)';
+    if (state.lastPhaseIdx !== -99) {
+      state.lastPhaseIdx = -99;
+      showGuide({ title: '組間休息', text: '深呼吸幾次<br>感受身體的能量' });
+    }
+  } else {
+    // 快速呼吸階段
+    const breathInRound = Math.floor(inRoundSec / breathSec);
+    const tInBreath = (inRoundSec % breathSec) / breathSec;
+    const isInhale = tInBreath < 0.5;
+    bg.classList.remove('inhale', 'exhale');
+    bg.classList.add(isInhale ? 'inhale' : 'exhale');
+    const sineVal = Math.sin(tInBreath * Math.PI);
+    glowEl.style.transform = `translate(-50%, -50%) scale(${0.7 + sineVal * 0.5})`;
+    cueEl.textContent = isInhale ? '吸' : '吐';
+    phaseEl.textContent = `第 ${breathInRound + 1} / ${m.bhastrikaPerRound} 次`;
+
+    if (state.lastPhaseIdx !== roundIdx) {
+      state.lastPhaseIdx = roundIdx;
+      showGuide({ title: `第 ${roundIdx + 1} 組`, text: `快速 ${m.bhastrikaPerRound} 次<br>專注鼻吸鼻吐` });
+    }
+  }
+}
+
+// === 冰人呼吸法 runner(30 次深呼吸 → 吐空憋氣 → 大吸 15 秒) ===
+function runWimHof(m, elapsed, remaining) {
+  const elapsedSec = elapsed / 1000;
+  const breathPhaseSec = m.wimhofPerRound * 2;   // 30 次 × 2 秒 = 60 秒
+  const holdPhaseSec = 60;                        // 預設憋氣 60 秒(可長可短)
+  const recoverySec = 15;                         // 大吸後憋 15 秒
+  const roundSec = breathPhaseSec + holdPhaseSec + recoverySec;
+  const roundIdx = Math.floor(elapsedSec / roundSec);
+  const inRoundSec = elapsedSec % roundSec;
+  const totalRounds = m.wimhofRounds || 3;
+
+  document.getElementById('timer').textContent =
+    `第 ${Math.min(totalRounds, roundIdx + 1)} 輪 / ${totalRounds}`;
+
+  const cueEl = document.getElementById('cue');
+  const phaseEl = document.getElementById('phase');
+  const bg = document.getElementById('breath-bg');
+  const glowEl = document.getElementById('breath-glow');
+
+  let stage;
+  if (inRoundSec < breathPhaseSec) stage = 'breathing';
+  else if (inRoundSec < breathPhaseSec + holdPhaseSec) stage = 'holdEmpty';
+  else stage = 'recovery';
+
+  if (stage === 'breathing') {
+    // 30 次深呼吸,每次 2 秒
+    const breathIdx = Math.floor(inRoundSec / 2);
+    const tInBreath = (inRoundSec % 2) / 2;
+    const isInhale = tInBreath < 0.5;
+    bg.classList.remove('inhale', 'exhale');
+    bg.classList.add(isInhale ? 'inhale' : 'exhale');
+    const sineVal = Math.sin(tInBreath * Math.PI);
+    glowEl.style.transform = `translate(-50%, -50%) scale(${0.6 + sineVal * 0.6})`;
+    cueEl.textContent = isInhale ? '深吸' : '吐';
+    phaseEl.textContent = `第 ${breathIdx + 1} / ${m.wimhofPerRound} 次`;
+    if (state.lastPhaseIdx !== `breath-${roundIdx}`) {
+      state.lastPhaseIdx = `breath-${roundIdx}`;
+      showGuide({ title: `第 ${roundIdx + 1} 輪 · 階段一`, text: `30 次深快呼吸<br>用力吸,放鬆吐` });
+    }
+  } else if (stage === 'holdEmpty') {
+    // 完全吐氣後憋氣
+    const holdElapsed = inRoundSec - breathPhaseSec;
+    bg.classList.remove('inhale', 'exhale');
+    glowEl.style.transform = 'translate(-50%, -50%) scale(0.6)';
+    cueEl.textContent = `${Math.floor(holdElapsed)}″`;
+    phaseEl.textContent = '吐 空 憋 氣';
+    if (state.lastPhaseIdx !== `hold-${roundIdx}`) {
+      state.lastPhaseIdx = `hold-${roundIdx}`;
+      showGuide({ title: '階段二 · 憋氣', text: '完全吐氣後屏息<br>感受身體的寧靜' });
+    }
+  } else {
+    // 大吸後憋 15 秒
+    const recElapsed = inRoundSec - breathPhaseSec - holdPhaseSec;
+    bg.classList.remove('inhale', 'exhale');
+    bg.classList.add('inhale');
+    glowEl.style.transform = 'translate(-50%, -50%) scale(1.2)';
+    cueEl.textContent = `${Math.max(0, Math.ceil(recoverySec - recElapsed))}″`;
+    phaseEl.textContent = '大 吸 憋 氣';
+    if (state.lastPhaseIdx !== `recovery-${roundIdx}`) {
+      state.lastPhaseIdx = `recovery-${roundIdx}`;
+      showGuide({ title: '階段三 · 大吸', text: '大吸一口氣,屏息 15 秒<br>感受能量充滿全身' });
+      playPhaseTransition();
+    }
+  }
+}
+
+function stopBreathing() {
+  state.running = false;
+  if (state.rafId) cancelAnimationFrame(state.rafId);
+  // 短音模式:每個音自己會在 0.5 秒內結束,不需手動淡出
+}
+
+// ===== 結束 =====
+function endSession() {
+  stopBreathing();
+
+  // 記錄這次練習(模式 + 實際秒數)
+  const elapsedSec = Math.round((performance.now() - state.startTime) / 1000);
+  // 至少要 10 秒才算一次有效練習(避免誤觸結束按鈕)
+  if (elapsedSec >= 10) {
+    recordSession(state.mode, elapsedSec);
+  }
+
+  // 結束音效
+  playEndingChime();
+
+  const m = MODES[state.mode];
+
+  // 隨機金句作為結束語錄(只顯示文字,不顯示作者出處)
+  const q = randomQuote();
+  document.getElementById('end-quote').innerHTML = formatQuoteForTwoLines(q.text);
+
+  // 建立感受標籤(優先使用該模式的專屬標籤池)
+  const tagsPool = (m && m.feelingTags && m.feelingTags.length >= 4)
+    ? m.feelingTags
+    : FEELING_TAGS;
+
+  const grid = document.getElementById('tag-grid');
+  grid.innerHTML = '';
+  state.selectedTags = new Set();
+  tagsPool.forEach(tag => {
+    const el = document.createElement('div');
+    el.className = 'tag';
+    el.textContent = tag;
+    el.onclick = () => {
+      if (state.selectedTags.has(tag)) {
+        state.selectedTags.delete(tag);
+        el.classList.remove('selected');
+        unrecordFeeling(tag);
+      } else if (state.selectedTags.size < 3) {
+        state.selectedTags.add(tag);
+        el.classList.add('selected');
+        recordFeelings([tag]);
+      }
+    };
+    grid.appendChild(el);
+  });
+
+  // 科學知識摺疊區(若該模式有 science 物件)
+  const scienceBlock = document.getElementById('science-block');
+  if (m && m.science) {
+    document.getElementById('science-title').textContent = m.science.title;
+    let html = m.science.content;
+    if (m.science.ref) {
+      html += `<div class="ref">參考:${m.science.ref}</div>`;
+    }
+    document.getElementById('science-content').innerHTML = html;
+    scienceBlock.style.display = '';
+    scienceBlock.classList.remove('expanded');  // 預設摺疊
+  } else {
+    scienceBlock.style.display = 'none';
+  }
+
+  document.getElementById('breath-bg').classList.remove('inhale', 'exhale');
+  document.getElementById('breath-glow').classList.remove('active');
+
+  showScreen('screen-end');
+}
+
+function toggleScience() {
+  document.getElementById('science-block').classList.toggle('expanded');
+}
+
+// 取消選取時減一次計數
+function unrecordFeeling(tag) {
+  const p = loadProfile();
+  if (p.feelingStats[tag] && p.feelingStats[tag] > 0) {
+    p.feelingStats[tag] -= 1;
+    if (p.feelingStats[tag] === 0) delete p.feelingStats[tag];
+    saveProfile(p);
+  }
+}
+
+// ===== Web Audio 系統 (單音 + 泛音 + 迴音版) =====
+function initAudio() {
+  if (state.audioCtx) return;
+  try {
+    state.audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    if (state.audioCtx.state === 'suspended') state.audioCtx.resume();
+    setupBreathTone();
+  } catch(e) { console.warn('Audio not supported', e); }
+}
+
+// === 持續單音 + 泛音 + 迴音 ===
+// 改為「每次吸吐切換時播 0.5 秒短音」模式
+// - 吸氣 G3 + 泛音 / 吐氣 C3 + 泛音
+// - 透過 ConvolverNode 加 reverb 迴音
+function setupBreathTone() {
+  const ctx = state.audioCtx;
+
+  // === 主增益(整體音量) ===
+  state.toneMasterGain = ctx.createGain();
+  state.toneMasterGain.gain.value = 1;
+
+  // === 迴音(Convolver Reverb) ===
+  const reverb = ctx.createConvolver();
+  reverb.buffer = createReverbImpulse(ctx, 3.5, 2.5);
+
+  // 乾濕混音
+  const dryGain = ctx.createGain();
+  dryGain.gain.value = 0.6;
+  const wetGain = ctx.createGain();
+  wetGain.gain.value = 0.55;
+
+  state.toneMasterGain.connect(dryGain);
+  state.toneMasterGain.connect(reverb);
+  reverb.connect(wetGain);
+  dryGain.connect(ctx.destination);
+  wetGain.connect(ctx.destination);
+
+  // === 吸氣音高 G3 / 吐氣音高 C3(完全五度下) ===
+  state.inhaleFreq = 196;
+  state.exhaleFreq = 130.81;
+
+  // 用旗標控制單音模式 - 不再用持續振盪器
+  state.toneReady = true;
+}
+
+// 生成程式化 reverb impulse response
+function createReverbImpulse(ctx, duration, decay) {
+  const sampleRate = ctx.sampleRate;
+  const length = sampleRate * duration;
+  const impulse = ctx.createBuffer(2, length, sampleRate);
+  for (let ch = 0; ch < 2; ch++) {
+    const channelData = impulse.getChannelData(ch);
+    for (let i = 0; i < length; i++) {
+      channelData[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / length, decay);
+    }
+  }
+  return impulse;
+}
+
+// 改為「呼吸切換時觸發短音」 - 不再持續更新
+function updateBreathSound(sineVal, isInhale) {
+  // 持續更新已不需要 - 短音由 playBreathTone 在切換時觸發
+}
+
+// 在吸吐切換瞬間播放 0.5 秒單音 + 泛音(透過 reverb)
+function playBreathTone(isInhale) {
+  if (!state.audioCtx || !state.toneReady) return;
+  const ctx = state.audioCtx;
+  const now = ctx.currentTime;
+
+  const baseFreq = isInhale ? state.inhaleFreq : state.exhaleFreq;
+
+  // 三層諧波(基音 + 八度 + 高五度)
+  const harmonics = [
+    { ratio: 1, type: 'sine',     g: 0.45 },   // 基音
+    { ratio: 2, type: 'sine',     g: 0.18 },   // 八度泛音
+    { ratio: 3, type: 'triangle', g: 0.08 }    // 高五度泛音
+  ];
+
+  harmonics.forEach(({ ratio, type, g }) => {
+    const osc = ctx.createOscillator();
+    osc.type = type;
+    osc.frequency.value = baseFreq * ratio;
+
+    const gain = ctx.createGain();
+    // ADSR 包絡:快速淡入,維持,自然淡出 - 總長 0.5 秒
+    gain.gain.setValueAtTime(0, now);
+    gain.gain.linearRampToValueAtTime(g, now + 0.05);          // attack 0.05s
+    gain.gain.setValueAtTime(g, now + 0.3);                     // sustain 到 0.3s
+    gain.gain.exponentialRampToValueAtTime(0.001, now + 0.5);  // release 到 0.5s
+
+    osc.connect(gain);
+    gain.connect(state.toneMasterGain);
+
+    osc.start(now);
+    osc.stop(now + 0.55);
+  });
+}
+
+// 吸吐切換時改呼叫 playBreathTone
+function playChime(isInhale) {
+  playBreathTone(isInhale);
+}
+
+// === 結束音效:圓滿落地的頌缽尾聲 ===
+function playEndingChime() {
+  if (!state.audioCtx) return;
+  const ctx = state.audioCtx;
+  const now = ctx.currentTime;
+
+  // 三個層次,類似頌缽完整餘韻
+  // Layer 1: 主基頻 174Hz(深沉根音)
+  // Layer 2: 261Hz (五度共鳴)
+  // Layer 3: 392Hz (高音泛音)
+  const layers = [
+    { f: 174, type: 'sine', g: 0.5, dur: 6, delay: 0 },
+    { f: 261, type: 'sine', g: 0.32, dur: 5.5, delay: 0.2 },
+    { f: 392, type: 'triangle', g: 0.18, dur: 4.5, delay: 0.4 },
+    { f: 523, type: 'sine', g: 0.10, dur: 3.5, delay: 0.6 }
+  ];
+
+  layers.forEach(({ f, type, g, dur, delay }) => {
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+    osc.type = type;
+    osc.frequency.setValueAtTime(f, now);
+
+    // 緩慢淡入更柔
+    gain.gain.setValueAtTime(0, now + delay);
+    gain.gain.linearRampToValueAtTime(g, now + delay + 0.15);
+    // 長餘韻緩慢淡出
+    gain.gain.exponentialRampToValueAtTime(0.001, now + delay + dur);
+
+    osc.connect(gain).connect(ctx.destination);
+    osc.start(now + delay);
+    osc.stop(now + delay + dur + 0.1);
+  });
+}
+
+function playCountdownBeep(num) {
+  if (!state.audioCtx) return;
+  const ctx = state.audioCtx;
+  const now = ctx.currentTime;
+  const osc = ctx.createOscillator();
+  const gain = ctx.createGain();
+  osc.type = 'sine';
+  // 比之前更柔
+  osc.frequency.value = num === 1 ? 392 : (num === 2 ? 523 : 659);
+  gain.gain.setValueAtTime(0, now);
+  gain.gain.linearRampToValueAtTime(0.18, now + 0.04);
+  gain.gain.exponentialRampToValueAtTime(0.001, now + 0.7);
+  osc.connect(gain).connect(ctx.destination);
+  osc.start(now);
+  osc.stop(now + 0.75);
+}
+
+function playPhaseTransition() {
+  if (!state.audioCtx) return;
+  const ctx = state.audioCtx;
+  const now = ctx.currentTime;
+  [523, 659, 784].forEach((freq, i) => {
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+    osc.type = 'sine';
+    osc.frequency.value = freq;
+    const startT = now + i * 0.18;
+    gain.gain.setValueAtTime(0, startT);
+    gain.gain.linearRampToValueAtTime(0.15, startT + 0.03);
+    gain.gain.exponentialRampToValueAtTime(0.001, startT + 0.5);
+    osc.connect(gain).connect(ctx.destination);
+    osc.start(startT);
+    osc.stop(startT + 0.55);
+  });
+}
+
+</script>
+</body>
+</html>
