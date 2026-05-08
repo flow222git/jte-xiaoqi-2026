@@ -795,17 +795,19 @@
   }
   .home-title {
     font-family: 'Noto Serif TC', serif;
-    font-size: 32px;
+    font-size: clamp(24px, 7vw, 32px);   /* 窄機 24 → 寬機 32 */
     font-weight: 500;
     color: var(--ink);
-    letter-spacing: 8px;
+    letter-spacing: clamp(4px, 1.8vw, 8px);
+    white-space: nowrap;
   }
   .home-tagline {
     font-family: 'Cormorant Garamond', serif;
-    font-size: 12px;
+    font-size: clamp(10px, 2.8vw, 12px);
     color: var(--ink-soft);
-    letter-spacing: 6px;
+    letter-spacing: clamp(3px, 1.4vw, 6px);
     margin-top: 8px;
+    white-space: nowrap;
   }
 
   /* 模式列表(舊樣式保留供它處使用) */
@@ -856,16 +858,20 @@
     flex: 1;
   }
   .category-name {
-    font-size: 16px;
+    font-size: clamp(14px, 4.2vw, 16px);
     font-weight: 500;
     color: var(--ink);
-    letter-spacing: 2px;
+    letter-spacing: clamp(1px, 0.5vw, 2px);
     margin-bottom: 2px;
+    white-space: nowrap;
   }
   .category-desc {
-    font-size: 12px;
+    font-size: clamp(11px, 3.2vw, 12px);
     color: var(--ink-soft);
     letter-spacing: 0.5px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
   }
   .category-arrow {
     flex-shrink: 0;
@@ -908,16 +914,22 @@
     transform: translateX(2px);
   }
   .mode-name-mini {
-    font-size: 14px;
+    font-size: clamp(13px, 3.8vw, 14px);
     font-weight: 500;
     color: var(--ink);
-    letter-spacing: 1px;
+    letter-spacing: clamp(0.5px, 0.3vw, 1px);
     margin-bottom: 2px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
   }
   .mode-desc-mini {
-    font-size: 11px;
+    font-size: clamp(10px, 3vw, 11px);
     color: var(--ink-soft);
     letter-spacing: 0.3px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
   }
   .mode-card {
     background: var(--glass);
@@ -972,11 +984,41 @@
   .home-quote-foot {
     margin-top: 32px;
     text-align: center;
-    font-size: 13px;
+    font-size: clamp(11px, 3.4vw, 13px);
     color: var(--ink-soft);
-    letter-spacing: 2px;
+    letter-spacing: clamp(1px, 0.5vw, 2px);
     line-height: 1.8;
     max-width: 320px;
+  }
+
+  /* 極窄螢幕保護(< 360px,例如 iPhone SE 第一代) */
+  @media (max-width: 359px) {
+    .home-title {
+      font-size: 22px;
+      letter-spacing: 3px;
+    }
+    .home-tagline {
+      font-size: 9px;
+      letter-spacing: 2px;
+    }
+    .category-name {
+      font-size: 13px;
+      letter-spacing: 0.5px;
+    }
+    .category-desc {
+      font-size: 10px;
+    }
+    .mode-name-mini {
+      font-size: 12px;
+      letter-spacing: 0.3px;
+    }
+    .mode-desc-mini {
+      font-size: 9px;
+    }
+    .category-emoji {
+      font-size: 18px;
+      width: 26px;
+    }
   }
 
   /* === 設定頁 === */
