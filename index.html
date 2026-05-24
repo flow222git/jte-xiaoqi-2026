@@ -2346,9 +2346,57 @@ function toggleIosHowto() {
   document.getElementById('ios-hint').classList.toggle('expanded');
 }
 
+// ===== 深度連結:從其他工具(如 breathaware)帶 URL 參數過來 =====
+// 對應表:外部 key → 小憩。練息 mode key
+const PRACTICE_ALIAS = {
+  // breathaware 訓練網站使用的 key
+  'xiangzhen':  'baseline',
+  'sighing':    'sigh',
+  '478':        'sleep478',
+  '4-7-8':      'sleep478',
+  'extended':   'exhale',
+  'nadishodhana': 'nadi',
+  'rebirthing': 'rebirth',
+  'lions':      'lion',
+  'mindful3':   'three',
+  'counting':   'count',
+  'bodyscan':   'scan',
+  'metta':      'tonglen',
+  'iceman':     'wimhof',
+  'bellows':    'bhastrika'
+  // mode key 本身(box / baseline / sigh / sleep478 等)直接通過,不需對應
+};
+
+function handleDeepLink() {
+  const params = new URLSearchParams(window.location.search);
+  let practiceKey = params.get('practice');
+  if (!practiceKey) return;
+
+  // 對應表查詢:支援別名也支援原 mode key
+  practiceKey = PRACTICE_ALIAS[practiceKey] || practiceKey;
+
+  // 確認是有效的呼吸法
+  if (!MODES[practiceKey]) return;
+
+  const autoStart = params.get('start') === '1';
+
+  // 等 Landing 動畫完成後才跳轉(約 2.5 秒,讓使用者看到品牌一眼)
+  setTimeout(() => {
+    goToHome();              // 跳過 Landing 進首頁
+    setTimeout(() => {
+      selectMode(practiceKey); // 進設定頁
+      if (autoStart) {
+        // 再 600ms 跳過設定直接開始(讓設定頁渲染完才按 begin)
+        setTimeout(() => beginCountdown(), 600);
+      }
+    }, 200);
+  }, 2500);
+}
+
 // 頁面載入後檢查
 window.addEventListener('load', () => {
   checkInstallHint();
+  handleDeepLink();
 });
 
 // ===== 模式設定 =====
