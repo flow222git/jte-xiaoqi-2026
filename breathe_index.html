@@ -1,0 +1,298 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no">
+<title>Breeeeeathe~ 呼吸覺察</title>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Serif+TC:wght@400;500;700&family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@3.19.0/dist/tabler-icons.min.css">
+<script src="https://accounts.google.com/gsi/client" async defer></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
+<style>
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+:root{
+  --p:#003D7C;--pl:#A8C9EE;--pp:#F2F4F7;--pd:#002850;
+  --g:#4CAF19;--gp:#E6F4EA;--o:#FF8A00;--y:#FFD600;
+  --t:#0A1929;--t2:#4A5A6E;--t3:#8A95A5;
+  --s:#FFFFFF;--st:#EEF3F9;--warm:#FAFAF7;
+  --inhale:#4CAF19;--exhale:#003D7C;--hold:#A8C9EE;
+  --border:rgba(0,61,124,0.08);
+}
+html,body{height:100%;font-family:'Inter','Noto Sans TC',sans-serif;background:var(--warm);color:var(--t);font-size:14px;line-height:1.6;-webkit-font-smoothing:antialiased;overscroll-behavior:none}
+body{max-width:480px;margin:0 auto;position:relative;min-height:100vh;box-shadow:0 0 40px rgba(0,61,124,0.06)}
+
+/* NAV */
+.nav{background:rgba(250,250,247,0.92);backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);border-bottom:1px solid var(--border);padding:0 18px;height:52px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:100}
+.nav-brand{font-family:'Noto Serif TC',serif;font-size:15px;font-weight:700;color:var(--p);letter-spacing:0.1em}
+.nav-tabs{display:flex;gap:2px}
+.nav-tab{background:none;border:none;cursor:pointer;font-size:12px;padding:6px 12px;border-radius:999px;color:var(--t3);transition:all 0.2s;font-family:'Inter',sans-serif}
+.nav-tab.active{background:var(--st);color:var(--p);font-weight:600}
+.nav-user{display:flex;align-items:center;gap:6px}
+.nav-user img{width:26px;height:26px;border-radius:50%;border:1.5px solid var(--pl)}
+
+/* PAGE */
+.page{display:none}
+.page.active{display:block;animation:fade 0.3s ease}
+@keyframes fade{from{opacity:0}to{opacity:1}}
+
+/* HOME */
+.home{padding:32px 20px;text-align:center;min-height:calc(100vh - 52px);display:flex;flex-direction:column;justify-content:center}
+.home-title{font-family:'Noto Serif TC',serif;font-size:32px;font-weight:700;color:var(--p);letter-spacing:0.06em;margin-bottom:8px}
+.home-sub{font-size:13px;color:var(--t3);letter-spacing:0.1em;margin-bottom:32px}
+.home-card{background:var(--st);border-radius:16px;padding:20px;margin-bottom:24px;text-align:left}
+.home-card p{font-size:13px;color:var(--t2);line-height:1.9}
+.home-card p strong{color:var(--p)}
+.mode-select{display:flex;flex-direction:column;gap:10px;margin-bottom:20px}
+.mode-btn{background:white;border:1.5px solid var(--border);border-radius:14px;padding:16px;cursor:pointer;transition:all 0.2s;text-align:left;display:flex;align-items:center;gap:14px}
+.mode-btn:hover{border-color:var(--pl);box-shadow:0 4px 16px rgba(0,61,124,0.08)}
+.mode-btn.primary{background:var(--p);border-color:var(--p)}
+.mode-btn.primary .mode-name,.mode-btn.primary .mode-desc{color:white}
+.mode-btn.primary .mode-desc{color:var(--pl)}
+.mode-icon{width:42px;height:42px;border-radius:12px;background:var(--st);display:flex;align-items:center;justify-content:center;flex-shrink:0;font-size:20px;color:var(--p)}
+.mode-btn.primary .mode-icon{background:rgba(255,255,255,0.15);color:white}
+.mode-name{font-size:14px;font-weight:600;color:var(--p);margin-bottom:2px}
+.mode-desc{font-size:11px;color:var(--t3)}
+
+/* GUIDED PICKER */
+.guided-list{display:flex;flex-direction:column;gap:8px}
+.guided-item{background:white;border:1.5px solid var(--border);border-radius:12px;padding:14px 16px;cursor:pointer;transition:all 0.2s;display:flex;align-items:center;justify-content:space-between}
+.guided-item:hover{border-color:var(--pl)}
+.guided-info .g-name{font-size:13px;font-weight:600;color:var(--p)}
+.guided-info .g-pattern{font-size:11px;color:var(--t3);margin-top:2px}
+
+/* BREATHING SCREEN */
+.breath-screen{position:fixed;inset:0;max-width:480px;margin:0 auto;background:var(--p);display:none;flex-direction:column;z-index:200;overflow:hidden}
+.breath-screen.active{display:flex}
+.breath-top{padding:16px 20px;display:flex;align-items:center;justify-content:space-between;color:white;z-index:10}
+.breath-timer{font-size:14px;font-family:'Inter',sans-serif;font-weight:300;letter-spacing:0.05em}
+.breath-mode-label{font-size:11px;color:var(--pl);letter-spacing:0.1em}
+.breath-end-btn{background:rgba(255,255,255,0.15);border:none;color:white;padding:7px 16px;border-radius:999px;font-size:12px;cursor:pointer;font-family:'Inter',sans-serif}
+.breath-center{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;position:relative}
+.breath-orb{width:180px;height:180px;border-radius:50%;background:radial-gradient(circle at 40% 35%,rgba(168,201,238,0.4),rgba(76,175,25,0.15));display:flex;align-items:center;justify-content:center;transition:transform 0.4s cubic-bezier(0.4,0,0.2,1);position:relative}
+.breath-orb.inhaling{transform:scale(1.3);background:radial-gradient(circle at 40% 35%,rgba(76,175,25,0.5),rgba(76,175,25,0.15))}
+.breath-orb.exhaling{transform:scale(0.85);background:radial-gradient(circle at 40% 35%,rgba(168,201,238,0.5),rgba(0,61,124,0.2))}
+.breath-phase{font-family:'Noto Serif TC',serif;font-size:22px;color:white;font-weight:500;letter-spacing:0.15em}
+.breath-hint{font-size:12px;color:var(--pl);margin-top:8px;height:18px;letter-spacing:0.05em}
+.breath-guide-text{position:absolute;bottom:30%;font-size:13px;color:rgba(168,201,238,0.9);text-align:center;padding:0 40px;line-height:1.7}
+
+/* TOUCH ZONES */
+.touch-zones{display:flex;height:38%;border-top:1px solid rgba(168,201,238,0.2)}
+.touch-zone{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;cursor:pointer;user-select:none;transition:background 0.15s;position:relative}
+.touch-zone:active,.touch-zone.pressing{background:rgba(255,255,255,0.08)}
+.touch-zone.left{border-right:1px solid rgba(168,201,238,0.2)}
+.touch-zone-label{font-family:'Noto Serif TC',serif;font-size:20px;color:white;font-weight:500;letter-spacing:0.1em;margin-bottom:6px}
+.touch-zone-sub{font-size:11px;color:var(--pl);letter-spacing:0.08em}
+.touch-zone-icon{font-size:28px;margin-bottom:10px;opacity:0.8}
+
+/* REPORT */
+.report{padding:20px;padding-bottom:80px}
+.report-hero{background:var(--p);border-radius:20px;padding:24px;color:white;margin-bottom:16px;position:relative;overflow:hidden}
+.report-hero::after{content:'';position:absolute;right:-30px;top:-30px;width:120px;height:120px;background:rgba(168,201,238,0.12);border-radius:50%}
+.report-mode{font-size:11px;color:var(--pl);letter-spacing:0.1em;margin-bottom:8px}
+.report-mode-title{font-family:'Noto Serif TC',serif;font-size:20px;font-weight:700;margin-bottom:10px;letter-spacing:0.04em}
+.report-mode-desc{font-size:12px;color:rgba(168,201,238,0.9);line-height:1.7}
+.metrics{display:grid;grid-template-columns:repeat(2,1fr);gap:10px;margin-bottom:16px}
+.metric{background:white;border-radius:14px;padding:14px;box-shadow:0 2px 12px rgba(0,61,124,0.05);border:1px solid var(--border)}
+.metric-val{font-size:24px;font-weight:300;color:var(--p);letter-spacing:-0.02em;font-family:'Inter',sans-serif}
+.metric-val .unit{font-size:11px;color:var(--t3);font-weight:400}
+.metric-lbl{font-size:10px;color:var(--t3);margin-top:2px;letter-spacing:0.05em}
+
+.card{background:white;border-radius:16px;padding:18px;box-shadow:0 2px 12px rgba(0,61,124,0.05);margin-bottom:14px;border:1px solid var(--border)}
+.card-title{font-size:11px;font-weight:600;color:var(--p);letter-spacing:0.08em;margin-bottom:14px;display:flex;align-items:center;gap:6px}
+.card-title i{font-size:14px}
+
+/* COLLAPSIBLE */
+.collapse-head{display:flex;align-items:center;justify-content:space-between;cursor:pointer;padding:4px 0}
+.collapse-head .ch-title{font-size:12px;font-weight:600;color:var(--p)}
+.collapse-body{max-height:0;overflow:hidden;transition:max-height 0.3s ease}
+.collapse-body.open{max-height:600px}
+.collapse-chevron{transition:transform 0.3s;color:var(--t3)}
+.collapse-chevron.open{transform:rotate(180deg)}
+
+/* CHART */
+.chart-wrap{margin-top:8px}
+.chart-svg{width:100%;height:auto;display:block}
+.chart-legend{display:flex;gap:14px;justify-content:center;margin-top:8px;flex-wrap:wrap}
+.chart-leg{display:flex;align-items:center;gap:5px;font-size:10px;color:var(--t2)}
+.chart-leg .dot{width:8px;height:8px;border-radius:2px}
+
+/* INSIGHT BOX */
+.insight{background:var(--st);border-radius:12px;padding:14px;font-size:12px;color:var(--t2);line-height:1.8;border-left:3px solid var(--p)}
+.insight.warn{background:#FFF3E0;border-left-color:var(--o)}
+.insight.good{background:var(--gp);border-left-color:var(--g)}
+
+/* MOOD/FEELING */
+.feeling-grid{display:flex;gap:8px;flex-wrap:wrap}
+.feeling-opt{background:var(--pp);border:1.5px solid transparent;border-radius:999px;padding:7px 14px;font-size:12px;color:var(--t2);cursor:pointer;transition:all 0.18s}
+.feeling-opt.selected{background:var(--gp);border-color:var(--g);color:var(--g);font-weight:500}
+.discomfort-opt.selected{background:#FFF3E0;border-color:var(--o);color:var(--o)}
+.mood-scale{display:flex;gap:6px;justify-content:space-between}
+.mood-face{flex:1;aspect-ratio:1;border-radius:12px;border:1.5px solid var(--border);background:white;cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:22px;transition:all 0.18s}
+.mood-face.selected{border-color:var(--p);background:var(--st);transform:scale(1.05)}
+.report-ta{width:100%;border:1.5px solid var(--pl);border-radius:10px;padding:10px 12px;font-size:12px;resize:none;font-family:inherit;background:var(--pp);outline:none;line-height:1.6}
+.report-ta:focus{border-color:var(--p)}
+
+.save-btn{background:var(--o);color:white;border:none;border-radius:999px;padding:13px;font-size:14px;font-weight:600;cursor:pointer;width:100%;font-family:'Inter',sans-serif;transition:all 0.2s;letter-spacing:0.04em}
+.save-btn:hover{background:#e07a00}
+.ghost-btn{background:transparent;color:var(--p);border:1.5px solid var(--p);border-radius:999px;padding:11px;font-size:13px;font-weight:500;cursor:pointer;width:100%;font-family:'Inter',sans-serif;margin-top:8px}
+
+/* HISTORY */
+.history{padding:20px;padding-bottom:80px}
+.hist-item{background:white;border-radius:14px;padding:14px 16px;box-shadow:0 2px 10px rgba(0,61,124,0.05);margin-bottom:10px;border:1px solid var(--border);cursor:pointer;transition:all 0.2s}
+.hist-item:hover{box-shadow:0 4px 18px rgba(0,61,124,0.1)}
+.hist-top{display:flex;align-items:center;justify-content:space-between;margin-bottom:8px}
+.hist-date{font-size:11px;color:var(--t3)}
+.hist-tag{font-size:10px;padding:2px 8px;border-radius:999px;font-weight:600;background:var(--st);color:var(--p)}
+.hist-stats{display:flex;gap:16px}
+.hist-stat{font-size:11px;color:var(--t2)}
+.hist-stat strong{color:var(--p);font-size:14px;font-weight:600}
+
+/* SAFETY BANNER */
+.safety{background:#FFF3E0;border:1px solid rgba(255,138,0,0.2);border-radius:12px;padding:12px 14px;font-size:11px;color:#8a5000;line-height:1.7;margin-top:14px}
+.safety i{color:var(--o)}
+
+/* LOGIN MODAL */
+.login-modal{position:fixed;inset:0;background:rgba(0,0,0,0.45);display:none;align-items:center;justify-content:center;z-index:500;padding:20px}
+.login-modal.active{display:flex}
+.login-box{background:white;border-radius:20px;padding:28px 24px;width:100%;max-width:380px;box-shadow:0 20px 60px rgba(0,0,0,0.25)}
+.login-title{font-family:'Noto Serif TC',serif;font-size:16px;font-weight:700;color:var(--p);margin-bottom:6px}
+.login-sub{font-size:12px;color:var(--t3);margin-bottom:18px;line-height:1.6}
+.login-skip{width:100%;background:var(--pp);border:none;border-radius:999px;padding:10px;font-size:12px;color:var(--t3);cursor:pointer;font-family:'Inter',sans-serif;margin-top:10px}
+
+/* TOAST */
+.toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%) translateY(10px);background:var(--p);color:white;padding:10px 22px;border-radius:999px;font-size:12px;font-weight:500;opacity:0;transition:all 0.25s;pointer-events:none;z-index:600;max-width:90vw;text-align:center}
+.toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+
+.section-label{font-size:10px;color:var(--t3);letter-spacing:0.1em;margin:20px 0 10px;text-transform:uppercase}
+</style>
+</head>
+<body>
+
+<!-- NAV -->
+<nav class="nav">
+  <span class="nav-brand">Breeeeeathe~</span>
+  <div class="nav-tabs">
+    <button class="nav-tab active" onclick="showPage('home')">覺察</button>
+    <button class="nav-tab" onclick="showPage('history')">軌跡</button>
+  </div>
+  <div class="nav-user" id="nav-user"></div>
+</nav>
+
+<!-- HOME -->
+<div class="page active" id="page-home">
+  <div class="home">
+    <div class="home-title">Breeeeeathe~</div>
+    <div class="home-sub">用呼吸了解自己</div>
+
+    <div class="home-card">
+      <p>這個工具透過你的<strong>左右按壓時序</strong>來觀察呼吸：</p>
+      <p style="margin-top:10px">🟢 左邊按住 = <strong>吸氣</strong><br>🔵 右邊按住 = <strong>吐氣</strong><br>⚪ 兩邊放開 = <strong>屏息</strong></p>
+      <p style="margin-top:10px;font-size:12px;color:var(--t3)">它分析的是呼吸節奏與穩定度，不測量血氧或肺活量。</p>
+    </div>
+
+    <div class="section-label">選擇模式</div>
+    <div class="mode-select">
+      <div class="mode-btn primary" onclick="startSession('natural')">
+        <div class="mode-icon"><i class="ti ti-wind"></i></div>
+        <div>
+          <div class="mode-name">自然偵測</div>
+          <div class="mode-desc">不刻意控制，記錄你現在怎麼呼吸</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="section-label">指定呼吸法</div>
+    <div class="guided-list">
+      <div class="guided-item" onclick="startSession('resonance')">
+        <div class="guided-info">
+          <div class="g-name">諧振呼吸</div>
+          <div class="g-pattern">吸 5.5 秒 · 吐 5.5 秒 · 約 5.5 次/分</div>
+        </div>
+        <i class="ti ti-chevron-right" style="color:var(--t3)"></i>
+      </div>
+      <div class="guided-item" onclick="startSession('box')">
+        <div class="guided-info">
+          <div class="g-name">箱式呼吸</div>
+          <div class="g-pattern">吸 4 · 屏 4 · 吐 4 · 屏 4 秒</div>
+        </div>
+        <i class="ti ti-chevron-right" style="color:var(--t3)"></i>
+      </div>
+      <div class="guided-item" onclick="startSession('counting')">
+        <div class="guided-info">
+          <div class="g-name">數息法</div>
+          <div class="g-pattern">吸 4 秒 · 吐 6 秒 · 吐氣延長</div>
+        </div>
+        <i class="ti ti-chevron-right" style="color:var(--t3)"></i>
+      </div>
+    </div>
+
+    <div class="safety">
+      <i class="ti ti-info-circle"></i> 本工具提供呼吸覺察與練習建議，無法診斷疾病。若有胸悶、喘、頭暈、麻、心悸、恐慌或呼吸困難，請停止並諮詢專業人員。
+    </div>
+  </div>
+</div>
+
+<!-- HISTORY -->
+<div class="page" id="page-history">
+  <div class="history">
+    <div style="font-family:'Noto Serif TC',serif;font-size:20px;font-weight:700;color:var(--p);margin-bottom:4px;letter-spacing:0.04em">練習軌跡</div>
+    <div style="font-size:12px;color:var(--t3);margin-bottom:20px">你的呼吸覺察紀錄</div>
+    <div id="hist-compare"></div>
+    <div class="section-label">歷史紀錄</div>
+    <div id="hist-list"></div>
+  </div>
+</div>
+
+<!-- BREATHING SCREEN -->
+<div class="breath-screen" id="breath-screen">
+  <div class="breath-top">
+    <div>
+      <div class="breath-mode-label" id="breath-mode-label">自然偵測</div>
+      <div class="breath-timer" id="breath-timer">0:00</div>
+    </div>
+    <button class="breath-end-btn" onclick="endSession()">結束</button>
+  </div>
+  <div class="breath-center">
+    <div class="breath-orb" id="breath-orb">
+      <div>
+        <div class="breath-phase" id="breath-phase">準備</div>
+      </div>
+    </div>
+    <div class="breath-hint" id="breath-hint"></div>
+    <div class="breath-guide-text" id="breath-guide-text"></div>
+  </div>
+  <div class="touch-zones">
+    <div class="touch-zone left" id="zone-inhale">
+      <div class="touch-zone-icon">🟢</div>
+      <div class="touch-zone-label">吸氣</div>
+      <div class="touch-zone-sub">按住左邊</div>
+    </div>
+    <div class="touch-zone right" id="zone-exhale">
+      <div class="touch-zone-icon">🔵</div>
+      <div class="touch-zone-label">吐氣</div>
+      <div class="touch-zone-sub">按住右邊</div>
+    </div>
+  </div>
+</div>
+
+<!-- REPORT -->
+<div class="page" id="page-report">
+  <div class="report" id="report-content"></div>
+</div>
+
+<!-- LOGIN MODAL -->
+<div class="login-modal" id="login-modal">
+  <div class="login-box">
+    <div class="login-title">儲存並同步紀錄</div>
+    <div class="login-sub">登入 Google 帳號，呼吸紀錄會自動同步到練息場主平台的今日 Daily Check。</div>
+    <div id="login-gsi-btn"></div>
+    <button class="login-skip" onclick="skipLogin()">略過，只在本機儲存</button>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script src="app.js"></script>
+</body>
+</html>
